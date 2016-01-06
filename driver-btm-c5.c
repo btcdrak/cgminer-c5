@@ -1811,12 +1811,11 @@ void open_core()
     unsigned char data[TW_WRITE_COMMAND_LEN] = {0xff};
     unsigned char buf_vil[9] = {0};
 	struct vil_work work_vil;
-	
-	set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE));
-	set_hash_counting_number(0);
 
 	if(!opt_multi_version)	// fil mode
 	{
+		set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE));
+		set_hash_counting_number(0);
 		gateblk[0] = SET_BAUD_OPS;
 	    gateblk[1] = 0;//0x10; //16-23
 	    gateblk[2] = dev->baud | 0x80; //8-15 gateblk=1
@@ -1904,9 +1903,12 @@ void open_core()
 				}			
 			}
 		}
+		set_dhash_acc_control(get_dhash_acc_control() | OPERATION_MODE);
 	}
 	else	// vil mode
 	{
+		set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE) | VIL_MODE | VIL_MIDSTATE_NUMBER(opt_multi_version) & (~NEW_BLOCK) & (~RUN_BIT));
+		set_hash_counting_number(0);
 		// prepare gateblk
 		buf_vil[0] = VIL_COMMAND_TYPE | VIL_ALL | SET_CONFIG;
 		buf_vil[1] = 0x09;
@@ -2003,6 +2005,7 @@ void open_core()
 				}			
 			}
 		}
+		set_dhash_acc_control(get_dhash_acc_control() & (OPERATION_MODE) | VIL_MODE | VIL_MIDSTATE_NUMBER(opt_multi_version));
 	}
 }
 
