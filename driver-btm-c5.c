@@ -1192,6 +1192,7 @@ void check_asic_reg(unsigned int reg)
 						if(CRC5(reg_buf, (REGISTER_DATA_LENGTH+1)*8-5) != reg_value_buf->reg_buffer[reg_value_buf->p_rd].crc)
 						{
 							applog(LOG_DEBUG,"%s: crc is 0x%x, but it should be 0x%x\n", __FUNCTION__, CRC5(reg_buf, (REGISTER_DATA_LENGTH+1)*8-5), reg_value_buf->reg_buffer[reg_value_buf->p_rd].crc);
+							pthread_mutex_unlock(&reg_mutex);
 							continue;
 						}
 						//applog(LOG_DEBUG,"$\n");
