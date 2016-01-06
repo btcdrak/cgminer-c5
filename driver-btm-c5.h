@@ -93,6 +93,20 @@
 #define MAX_BAUD_DIVIDER		26
 #define DEFAULT_BAUD_DIVIDER	26
 #define BM1385_CORE_NUM			50
+#define VIL_COMMAND_TYPE		(0x02 << 5)
+#define VIL_ALL					(0x01 << 4)
+#define PAT						(0x01 << 7)
+#define GRAY					(0x01 << 6)
+#define INV_CLKO				(0x01 << 5)
+#define LPD						(0x01 << 4)
+#define GATEBCLK				(0x01 << 7)
+#define RFS						(0x01 << 6)
+#define MMEN					(0x01 << 7)
+#define TFS(x)					((x & 0x03) << 5)
+
+
+
+
 
 
 //other FPGA macro define
@@ -110,6 +124,7 @@
 #define NONCE_DATA_LENGTH				4				// 4 bytes
 #define REGISTER_DATA_LENGTH			4				// 4 bytes
 #define TW_WRITE_COMMAND_LEN			52
+#define TW_WRITE_COMMAND_LEN_VIL		52
 #define NEW_BLOCK_MARKER				0x11
 #define NORMAL_BLOCK_MARKER				0x01
 #define PHY_MEM_NONCE2_JOBID_ADDRESS	((1024-16)*1024*1024)
@@ -121,6 +136,7 @@
 #define BITMAIN_MAX_FAN_NUM				8				// FPGA just can supports 8 fan
 #define BITMAIN_DEFAULT_ASIC_NUM		64				// max support 64 ASIC on 1 HASH board
 #define MIDSTATE_LEN					32
+#define DATA2_LEN						12
 #define MAX_RETURNED_NONCE_NUM			10
 #define PREV_HASH_LEN					32
 #define MERKLE_BIN_LEN					32
@@ -341,6 +357,17 @@ struct freq_pll
 
 #define Swap32(l) (((l) >> 24) | (((l) & 0x00ff0000) >> 8) | (((l) & 0x0000ff00) << 8) | ((l) << 24))  
 
+
+struct vil_work
+{
+    uint8_t type;       // Bit[7:5]: Type,fixed 0x01.   Bit[4:0]:Reserved     
+    uint8_t length;     // data length, from Byte0 to the end.
+    uint8_t wc_base;    // Bit[7]: Reserved.    Bit[6:0]: Work count base, muti-Midstate, each Midstate corresponding work count increase one by one.
+    uint8_t mid_num;    // Bit[7:3]: Reserved   Bit[2:0]: MSN, midstate num,now support 1,2,4.
+    //uint32_t sno;       // SPAT mode??Start Nonce Number    Normal mode??Reserved.
+    uint8_t midstate[32];
+    uint8_t data2[12];
+};
 
 
 
