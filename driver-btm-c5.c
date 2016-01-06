@@ -704,6 +704,17 @@ void set_TW_write_command(unsigned int *value)
 	//applog(LOG_DEBUG,"%s: set TW_WRITE_COMMAND value[0]: 0x%x, value[1]: 0x%x, value[2]: 0x%x, value[3]: 0x%x\n", __FUNCTION__, *(value + 0), *(value + 1), *(value + 2), *(value + 3));
 }
 
+void set_TW_write_command_vil(unsigned int *value)
+{	
+	unsigned int i;	
+	for(i=0; i<TW_WRITE_COMMAND_LEN_VIL/sizeof(unsigned int); i++)	
+	{
+		*((unsigned int *)(axi_fpga_addr + TW_WRITE_COMMAND + i)) = *(value + i);//this is for FIL		
+		//applog(LOG_DEBUG,"%s: set TW_WRITE_COMMAND value[%d]: 0x%x\n", __FUNCTION__, i, *(value + i));	
+	}
+	//applog(LOG_DEBUG,"%s: set TW_WRITE_COMMAND value[0]: 0x%x, value[1]: 0x%x, value[2]: 0x%x, value[3]: 0x%x\n", __FUNCTION__, *(value + 0), *(value + 1), *(value + 2), *(value + 3));
+}
+
 int get_buffer_space(void)
 {
 	int ret = -1;
@@ -1001,48 +1012,51 @@ void set_PWM_according_to_temperature()
 		
 }
 
-void get_plldata(int type,int freq,uint32_t * reg_data,uint16_t * reg_data2)
+static void get_plldata(int type,int freq,uint32_t * reg_data,uint16_t * reg_data2, uint32_t *vil_data)
 {
-	uint32_t i;
-	char freq_str[10];
-	sprintf(freq_str,"%d", freq);
-	char plldivider1[32] = {0};
-	char plldivider2[32] = {0};
+    uint32_t i;
+    char freq_str[10];
+    sprintf(freq_str,"%d", freq);
+    char plldivider1[32] = {0};
+    char plldivider2[32] = {0};
+	char vildivider[32] = {0};
+    
+    if(type == 1385)
+    {
+        for(i=0; i < sizeof(freq_pll_1385)/sizeof(freq_pll_1385[0]); i++)
+        {
+            if( memcmp(freq_pll_1385[i].freq, freq_str, sizeof(freq_pll_1385[i].freq)) == 0)
+                break;
+        }
+    }
 
-	if(type == 1385)
-	{
-		for(i=0; i < sizeof(freq_pll_1385)/sizeof(freq_pll_1385[0]); i++)
-		{
-			if( memcmp(freq_pll_1385[i].freq, freq_str, sizeof(freq_pll_1385[i].freq)) == 0)
-				break;
-		}
-	}
+    if(i == sizeof(freq_pll_1385)/sizeof(freq_pll_1385[0]))
+    {
+        i = 4;
+    }
 
-	if(i == sizeof(freq_pll_1385)/sizeof(freq_pll_1385[0]))
-	{
-		i = 4;
-	}
+    sprintf(plldivider1, "%08x", freq_pll_1385[i].fildiv1);
+    sprintf(plldivider2, "%04x", freq_pll_1385[i].fildiv2);
+	sprintf(vildivider, "%04x", freq_pll_1385[i].vilpll);
 
-	sprintf(plldivider1, "%08x", freq_pll_1385[i].fildiv1);
-	sprintf(plldivider2, "%04x", freq_pll_1385[i].fildiv2);
-
-	*reg_data = freq_pll_1385[i].fildiv1;
-	*reg_data2 = freq_pll_1385[i].fildiv2;
-
+    *reg_data = freq_pll_1385[i].fildiv1;
+    *reg_data2 = freq_pll_1385[i].fildiv2;
+	*vil_data = freq_pll_1385[i].vilpll;
 }
 
 void set_frequency(unsigned short int frequency)
 {
-	unsigned char buf[4] = {0,0,0,0};
+	unsigned char buf[9] = {0,0,0,0,0,0,0,0,0};
 	unsigned int cmd_buf[3] = {0,0,0};
 	unsigned char i;
 	unsigned int ret, value;
 	uint32_t reg_data_pll = 0;
 	uint16_t reg_data_pll2 = 0;
+	uint32_t reg_data_vil = 0;
 
-	applog(LOG_DEBUG,"--- %s\n", __FUNCTION__);
+	applog(LOG_DEBUG,"\n--- %s\n", __FUNCTION__);
 
-	get_plldata(1385,frequency,&reg_data_pll,&reg_data_pll2);
+	get_plldata(1385, frequency, &reg_data_pll, &reg_data_pll2, &reg_data_vil);
 	applog(LOG_DEBUG,"%s: frequency = %d\n", __FUNCTION__, frequency);
 	
 	for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
@@ -1050,42 +1064,71 @@ void set_frequency(unsigned short int frequency)
 		if(dev->chain_exist[i] == 1)
 		{
 			//applog(LOG_DEBUG,"%s: i = %d\n", __FUNCTION__, i);
-
-			memset(buf,0,sizeof(buf));
-			memset(cmd_buf,0,sizeof(cmd_buf));
-			buf[0] = 0;
-			buf[0] |= SET_PLL_DIVIDER1;
-			buf[1] = (reg_data_pll >> 16) & 0xff;
-			buf[2] = (reg_data_pll >> 8) & 0xff;
-			buf[3] = (reg_data_pll >> 0) & 0xff;
-			buf[3] |= CRC5(buf, 4*8 - 5);
-			cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+			if(!opt_multi_version)	// fil mode
+			{
+				memset(buf,0,sizeof(buf));
+				memset(cmd_buf,0,sizeof(cmd_buf));
+				buf[0] = 0;
+				buf[0] |= SET_PLL_DIVIDER1;
+				buf[1] = (reg_data_pll >> 16) & 0xff;
+				buf[2] = (reg_data_pll >> 8) & 0xff;
+				buf[3] = (reg_data_pll >> 0) & 0xff;
+				buf[3] |= CRC5(buf, 4*8 - 5);
+				cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+			
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+				
+				cgsleep_ms(3);
 		
-			set_BC_command_buffer(cmd_buf);
-			ret = get_BC_write_command();
-			value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
-			set_BC_write_command(value);
-			
-			cgsleep_ms(3);
-	
-			memset(buf,0,sizeof(buf));
-			memset(cmd_buf,0,sizeof(cmd_buf));
-			buf[0] = SET_PLL_DIVIDER2;
-			buf[0] |= COMMAND_FOR_ALL;
-			buf[1] = 0;     //addr
-			buf[2] = reg_data_pll2 >> 8;
-			buf[3] = reg_data_pll2& 0x0ff;
-			buf[3] |= CRC5(buf, 4*8 - 5);
-			cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
-	
-			set_BC_command_buffer(cmd_buf);
-			ret = get_BC_write_command();
-			value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
-			set_BC_write_command(value);
-			
-			dev->freq[i] = frequency;
-	
-			cgsleep_ms(5);
+				memset(buf,0,sizeof(buf));
+				memset(cmd_buf,0,sizeof(cmd_buf));
+				buf[0] = SET_PLL_DIVIDER2;
+				buf[0] |= COMMAND_FOR_ALL;
+				buf[1] = 0;     //addr
+				buf[2] = reg_data_pll2 >> 8;
+				buf[3] = reg_data_pll2& 0x0ff;
+				buf[3] |= CRC5(buf, 4*8 - 5);
+				cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+		
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+				
+				dev->freq[i] = frequency;
+		
+				cgsleep_ms(5);
+			}
+			else	// vil
+			{
+				memset(buf,0,9);
+                memset(cmd_buf,0,3*sizeof(int));
+                buf[0] = VIL_COMMAND_TYPE | VIL_ALL | SET_CONFIG;
+				buf[1] = 0x09;
+				buf[2] = 0;
+				buf[3] = PLL_PARAMETER;
+                buf[4] = (reg_data_vil >> 24) & 0xff;
+                buf[5] = (reg_data_vil >> 16) & 0xff;
+                buf[6] = (reg_data_vil >> 8) & 0xff;
+                buf[7] = (reg_data_vil >> 0) & 0xff;
+				buf[8] = CRC5(buf, 8*8);
+
+				cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+				cmd_buf[1] = buf[4]<<24 | buf[5]<<16 | buf[6]<<8 | buf[7];;
+				cmd_buf[2] = buf[8]<<24;
+                printf("%s: cmd_buf[0] = 0x%x, cmd_buf[1] = 0x%x, cmd_buf[2] = 0x%x\n", __FUNCTION__, cmd_buf[0], cmd_buf[1], cmd_buf[2]);
+
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+				
+				dev->freq[i] = frequency;
+                cgsleep_ms(10);
+			}
 		}
 	}
 }
@@ -1118,24 +1161,46 @@ void clear_register_value_buf()
 
 void read_asic_register(unsigned char chain, unsigned char mode, unsigned char chip_addr, unsigned char reg_addr)
 {
-	unsigned char buf[4] = {0,0,0,0};
-	unsigned int cmd_buf[3] = {0,0,0};
-	unsigned int ret, value;
-	
-    buf[0] = GET_STATUS;
-    buf[1] = chip_addr;
-    buf[2] = reg_addr;
-	if (mode)	//all
-        buf[0] |= COMMAND_FOR_ALL;
-    buf[3] = CRC5(buf, 4*8 - 5);
-	applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
-	
-	cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
-	set_BC_command_buffer(cmd_buf);
-	
-	ret = get_BC_write_command();
-	value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
-	set_BC_write_command(value);
+    unsigned char buf[5] = {0,0,0,0,0};
+    unsigned int cmd_buf[3] = {0,0,0};
+    unsigned int ret, value;
+
+    if(!opt_multi_version)    // fil mode
+    {
+        buf[0] = GET_STATUS;
+        buf[1] = chip_addr;
+        buf[2] = reg_addr;
+        if (mode)   //all
+            buf[0] |= COMMAND_FOR_ALL;
+        buf[3] = CRC5(buf, 4*8 - 5);
+        applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
+
+        cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+        set_BC_command_buffer(cmd_buf);
+
+        ret = get_BC_write_command();
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        set_BC_write_command(value);
+    }
+    else    // vil mode
+    {
+        buf[0] = VIL_COMMAND_TYPE | GET_STATUS;
+        if(mode)
+            buf[0] |= VIL_ALL;
+        buf[1] = 0x05;
+        buf[2] = chip_addr;
+        buf[3] = reg_addr;
+        buf[4] = CRC5(buf, 4*8);
+        applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x, buf[4]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3], buf[4]);
+
+        cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+        cmd_buf[1] = buf[4]<<24;
+        set_BC_command_buffer(cmd_buf);
+
+        ret = get_BC_write_command();
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        set_BC_write_command(value);
+    }
 }
 
 void check_asic_reg(unsigned int reg)
@@ -1348,24 +1413,42 @@ void check_freq()
 
 void chain_inactive(unsigned char chain)
 {
-	unsigned char buf[4] = {0,0,0,0};
+	unsigned char buf[5] = {0,0,0,0,5};
 	unsigned int cmd_buf[3] = {0,0,0};
 	unsigned int ret, value;
-	
-	buf[0] = CHAIN_INACTIVE;
-    buf[1] = 0;
-    buf[2] = 0;
-	if (1)	//all
-        buf[0] |= COMMAND_FOR_ALL;
-    buf[3] = CRC5(buf, 4*8 - 5);
-	applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
-	
-	cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
-	set_BC_command_buffer(cmd_buf);
-	
-	ret = get_BC_write_command();
-	value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
-	set_BC_write_command(value);
+
+	if(!opt_multi_version)	// fil mode
+	{
+		buf[0] = CHAIN_INACTIVE | COMMAND_FOR_ALL;
+	    buf[1] = 0;
+	    buf[2] = 0;
+	    buf[3] = CRC5(buf, 4*8 - 5);
+		applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
+		
+		cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+		set_BC_command_buffer(cmd_buf);
+		
+		ret = get_BC_write_command();
+		value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+		set_BC_write_command(value);
+	}
+	else	// vil mode
+	{
+		buf[0] = VIL_COMMAND_TYPE | VIL_ALL | CHAIN_INACTIVE;
+		buf[1] = 0x05;
+		buf[2] = 0;
+		buf[3] = 0;
+		buf[4] = CRC5(buf, 4*8);
+		applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x, buf[4]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3], buf[4]);
+
+		cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+		cmd_buf[1] = buf[4]<<24;
+		set_BC_command_buffer(cmd_buf);
+
+		ret = get_BC_write_command();
+		value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+		set_BC_write_command(value);
+	}
 }
 
 void set_address(unsigned char chain, unsigned char mode, unsigned char address)
@@ -1373,21 +1456,41 @@ void set_address(unsigned char chain, unsigned char mode, unsigned char address)
 	unsigned char buf[4] = {0,0,0,0};
 	unsigned int cmd_buf[3] = {0,0,0};
 	unsigned int ret, value;
-	
-	buf[0] = SET_ADDRESS;
-    buf[1] = address;
-    buf[2] = 0;
-	if (mode)	//all
-        buf[0] |= COMMAND_FOR_ALL;
-    buf[3] = CRC5(buf, 4*8 - 5);
-	//applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
-	
-	cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
-	set_BC_command_buffer(cmd_buf);
-	
-	ret = get_BC_write_command();
-	value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
-	set_BC_write_command(value);
+
+	if(!opt_multi_version)	// fil mode
+	{
+		buf[0] = SET_ADDRESS;
+	    buf[1] = address;
+	    buf[2] = 0;
+		if (mode)	//all
+	        buf[0] |= COMMAND_FOR_ALL;
+	    buf[3] = CRC5(buf, 4*8 - 5);
+		//applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
+		
+		cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+		set_BC_command_buffer(cmd_buf);
+		
+		ret = get_BC_write_command();
+		value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+		set_BC_write_command(value);
+	}
+	else	// vil mode
+	{
+		buf[0] = VIL_COMMAND_TYPE | SET_ADDRESS;
+		buf[1] = 0x05;
+		buf[2] = address;
+		buf[3] = 0;
+		buf[4] = CRC5(buf, 4*8);
+		//applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x, buf[4]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3], buf[4]);
+
+		cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+		cmd_buf[1] = buf[4]<<24;
+		set_BC_command_buffer(cmd_buf);
+
+		ret = get_BC_write_command();
+		value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+		set_BC_write_command(value);
+	}
 }
 
 int calculate_asic_number(unsigned int actual_asic_number)
@@ -1533,27 +1636,50 @@ void set_baud(unsigned char bauddiv)
 		if(dev->chain_exist[i] == 1)
 		{
 			//first step: send new bauddiv to ASIC, but FPGA doesn't change its bauddiv, it uses old bauddiv to send BC command to ASIC
-			buf[0] = SET_BAUD_OPS;
-		    buf[1] = 0x10;
-		    buf[2] = bauddiv & 0x1f;
-			buf[0] |= COMMAND_FOR_ALL;
-		    buf[3] = CRC5(buf, 4*8 - 5);
-			applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
-			
-			cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
-			set_BC_command_buffer(cmd_buf);
-			
-			ret = get_BC_write_command();
-			value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
-			set_BC_write_command(value);
+			if(!opt_multi_version)	// fil mode
+			{
+				buf[0] = SET_BAUD_OPS;
+			    buf[1] = 0x10;
+			    buf[2] = bauddiv & 0x1f;
+				buf[0] |= COMMAND_FOR_ALL;
+			    buf[3] = CRC5(buf, 4*8 - 5);
+				applog(LOG_DEBUG,"%s: buf[0]=0x%x, buf[1]=0x%x, buf[2]=0x%x, buf[3]=0x%x\n", __FUNCTION__, buf[0], buf[1], buf[2], buf[3]);
+				
+				cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+				set_BC_command_buffer(cmd_buf);
+				
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+			}
+			else	// vil mode
+			{
+				buf[0] = VIL_COMMAND_TYPE | VIL_ALL | SET_CONFIG;
+				buf[1] = 0x09;
+				buf[2] = 0;
+				buf[3] = MISC_CONTROL;
+				buf[4] = 0;
+				buf[5] = INV_CLKO;
+				buf[6] = bauddiv & 0x1f;
+				buf[7] = 0;				
+				buf[8] = CRC5(buf, 8*8);
+
+				cmd_buf[0] = buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3];
+				cmd_buf[1] = buf[4]<<24 | buf[5]<<16 | buf[6]<<8 | buf[7];
+				cmd_buf[2] = buf[8]<<24;
+
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+			}
 		}
 	}
-
 	cgsleep_ms(50);
 	ret = get_BC_write_command();
 	value = (ret & 0xffffffe0) | (bauddiv & 0x1f);
 	set_BC_write_command(value);
-	dev->baud = bauddiv;
+	dev->baud = bauddiv;  
 }
 
 void init_uart_baud()
@@ -1681,100 +1807,206 @@ void open_core()
 	unsigned int i = 0, j = 0, m, work_id = 0, ret = 0, value = 0, work_fifo_ready = 0;
 	unsigned char gateblk[4] = {0,0,0,0};
 	unsigned int cmd_buf[3] = {0,0,0}, buf[TW_WRITE_COMMAND_LEN/sizeof(unsigned int)]={0};
-	unsigned char data[TW_WRITE_COMMAND_LEN] = {0xff};
-	
-	set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE));
-	set_hash_counting_number(0);
-	
-	gateblk[0] = SET_BAUD_OPS;
-    gateblk[1] = 0;//0x10; //16-23
-    gateblk[2] = dev->baud | 0x80; //8-15 gateblk=1
-    gateblk[0] |= 0x80;
-    gateblk[3] = CRC5(gateblk, 4*8 - 5);
-	applog(LOG_DEBUG,"%s: gateblk[0]=0x%x, gateblk[1]=0x%x, gateblk[2]=0x%x, gateblk[3]=0x%x\n", __FUNCTION__, gateblk[0], gateblk[1], gateblk[2], gateblk[3]);	
-	cmd_buf[0] = gateblk[0]<<24 | gateblk[1]<<16 | gateblk[2]<<8 | gateblk[3];
-	
-	memset(data, 0x00, TW_WRITE_COMMAND_LEN);
-	data[TW_WRITE_COMMAND_LEN - 1] = 0xff;
-	data[TW_WRITE_COMMAND_LEN - 12] = 0xff;
+	unsigned int buf_vil_tw[TW_WRITE_COMMAND_LEN_VIL/sizeof(unsigned int)]={0};
+    unsigned char data[TW_WRITE_COMMAND_LEN] = {0xff};
+    unsigned char buf_vil[9] = {0};
+	struct vil_work work_vil;
 
-	for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
+	if(!opt_multi_version)	// fil mode
 	{
-		if(dev->chain_exist[i] == 1)
+		set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE));
+		set_hash_counting_number(0);
+		gateblk[0] = SET_BAUD_OPS;
+	    gateblk[1] = 0;//0x10; //16-23
+	    gateblk[2] = dev->baud | 0x80; //8-15 gateblk=1
+	    gateblk[0] |= 0x80;
+	    gateblk[3] = CRC5(gateblk, 4*8 - 5);
+		applog(LOG_DEBUG,"%s: gateblk[0]=0x%x, gateblk[1]=0x%x, gateblk[2]=0x%x, gateblk[3]=0x%x\n", __FUNCTION__, gateblk[0], gateblk[1], gateblk[2], gateblk[3]);	
+		cmd_buf[0] = gateblk[0]<<24 | gateblk[1]<<16 | gateblk[2]<<8 | gateblk[3];
+		
+		memset(data, 0x00, TW_WRITE_COMMAND_LEN);
+		data[TW_WRITE_COMMAND_LEN - 1] = 0xff;
+		data[TW_WRITE_COMMAND_LEN - 12] = 0xff;
+
+		for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
 		{
-			set_BC_command_buffer(cmd_buf);
-			ret = get_BC_write_command();
-			value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
-			set_BC_write_command(value);
-			cgsleep_ms(10);
-
-			for(m=0; m<BM1385_CORE_NUM + 14; m++)
+			if(dev->chain_exist[i] == 1)
 			{
-				//applog(LOG_DEBUG,"%s: m = %d\n", __FUNCTION__, m);
-				do
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+				cgsleep_ms(10);
+
+				for(m=0; m<BM1385_CORE_NUM + 14; m++)
 				{
-					work_fifo_ready = get_buffer_space();
-					if(work_fifo_ready & (0x1 << i))
+					//applog(LOG_DEBUG,"%s: m = %d\n", __FUNCTION__, m);
+					do
 					{
-						break;
-					}
-					else	//work fifo is full, wait for 50ms
+						work_fifo_ready = get_buffer_space();
+						if(work_fifo_ready & (0x1 << i))
+						{
+							break;
+						}
+						else	//work fifo is full, wait for 50ms
+						{
+							//applog(LOG_DEBUG,"%s: chain%d work fifo not ready: 0x%x\n", __FUNCTION__, i, work_fifo_ready);
+							cgsleep_ms(1);
+						}
+					}while(1);
+
+					if(m==0)	//new block
 					{
-						//applog(LOG_DEBUG,"%s: chain%d work fifo not ready: 0x%x\n", __FUNCTION__, i, work_fifo_ready);
-						cgsleep_ms(1);
+						data[0] = NEW_BLOCK_MARKER;
 					}
-				}while(1);
-
-				if(m==0)	//new block
-				{
-					data[0] = NEW_BLOCK_MARKER;
-				}
-				else
-				{
-					data[0] = NORMAL_BLOCK_MARKER;
-				}
-
-				data[1] = i | 0x80; //set chain id and enable it
-
-				if(m==0)
-				{
-					ret = get_BC_write_command();	//disable null work
-					ret &= ~BC_COMMAND_EN_NULL_WORK;
-					set_BC_write_command(ret);
-				}
-				
-				if(m==BM1385_CORE_NUM + 14 - 1)
-				{
-					ret = get_BC_write_command();	//enable null work
-					ret |= BC_COMMAND_EN_NULL_WORK;
-					set_BC_write_command(ret);
-				}
-
-				memset(buf, 0, TW_WRITE_COMMAND_LEN/sizeof(unsigned int));
-
-				/*
-				for(j=0; j<TW_WRITE_COMMAND_LEN; j++)
-				{
-					applog(LOG_DEBUG,"data[%d] = 0x%x\n", j, data[i]);
-				}
-				*/
-				
-				for(j=0; j<TW_WRITE_COMMAND_LEN/sizeof(unsigned int); j++)
-				{
-					buf[j] = (data[4*j + 0] << 24) | (data[4*j + 1] << 16) | (data[4*j + 2] << 8) | data[4*j + 3];
-					if(j==9)
+					else
 					{
-						buf[j] = work_id++;
+						data[0] = NORMAL_BLOCK_MARKER;
 					}
-					//applog(LOG_DEBUG,"buf[%d] = 0x%x\n", j, buf[i]);
-				}
 
-				set_TW_write_command(buf);
-			}			
+					data[1] = i | 0x80; //set chain id and enable it
+
+					if(m==0)
+					{
+						ret = get_BC_write_command();	//disable null work
+						ret &= ~BC_COMMAND_EN_NULL_WORK;
+						set_BC_write_command(ret);
+					}
+					
+					if(m==BM1385_CORE_NUM + 14 - 1)
+					{
+						ret = get_BC_write_command();	//enable null work
+						ret |= BC_COMMAND_EN_NULL_WORK;
+						set_BC_write_command(ret);
+					}
+
+					memset(buf, 0, TW_WRITE_COMMAND_LEN/sizeof(unsigned int));
+
+					/*
+					for(j=0; j<TW_WRITE_COMMAND_LEN; j++)
+					{
+						applog(LOG_DEBUG,"data[%d] = 0x%x\n", j, data[i]);
+					}
+					*/
+					
+					for(j=0; j<TW_WRITE_COMMAND_LEN/sizeof(unsigned int); j++)
+					{
+						buf[j] = (data[4*j + 0] << 24) | (data[4*j + 1] << 16) | (data[4*j + 2] << 8) | data[4*j + 3];
+						if(j==9)
+						{
+							buf[j] = work_id++;
+						}
+						//applog(LOG_DEBUG,"buf[%d] = 0x%x\n", j, buf[i]);
+					}
+
+					set_TW_write_command(buf);
+				}			
+			}
 		}
+		set_dhash_acc_control(get_dhash_acc_control() | OPERATION_MODE);
 	}
+	else	// vil mode
+	{
+		set_dhash_acc_control(get_dhash_acc_control() & (~OPERATION_MODE) | VIL_MODE | VIL_MIDSTATE_NUMBER(opt_multi_version) & (~NEW_BLOCK) & (~RUN_BIT));
+		set_hash_counting_number(0);
+		// prepare gateblk
+		buf_vil[0] = VIL_COMMAND_TYPE | VIL_ALL | SET_CONFIG;
+		buf_vil[1] = 0x09;
+		buf_vil[2] = 0;
+		buf_vil[3] = MISC_CONTROL;
+		buf_vil[4] = 0;
+		buf_vil[5] = INV_CLKO;
+		buf_vil[6] = (dev->baud & 0x1f) | GATEBCLK;
+		buf_vil[7] = 0;				
+		buf_vil[8] = CRC5(buf_vil, 8*8);
 
-	set_dhash_acc_control(get_dhash_acc_control() | OPERATION_MODE);
+		cmd_buf[0] = buf_vil[0]<<24 | buf_vil[1]<<16 | buf_vil[2]<<8 | buf_vil[3];
+		cmd_buf[1] = buf_vil[4]<<24 | buf_vil[5]<<16 | buf_vil[6]<<8 | buf_vil[7];
+		cmd_buf[2] = buf_vil[8]<<24;
+        
+		// prepare special work for openning core
+		memset(&work_vil, 0, sizeof(struct vil_work));
+		work_vil.type = 0x01 << 5;
+		work_vil.length = sizeof(struct vil_work);
+		work_vil.wc_base = 0;
+		work_vil.mid_num = 1;
+		//work_vil.sno = 0;
+		work_vil.data2[0] = 0xff;
+		work_vil.data2[11] = 0xff;
+
+		memset(data, 0x00, 4);
+        memset(buf_vil_tw, 0x00, TW_WRITE_COMMAND_LEN_VIL);
+
+		for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
+		{
+			if(dev->chain_exist[i] == 1)
+			{
+				set_BC_command_buffer(cmd_buf);
+				ret = get_BC_write_command();
+				value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+				set_BC_write_command(value);
+				cgsleep_ms(10);
+
+				for(m=0; m<BM1385_CORE_NUM + 14; m++)
+				{
+					//applog(LOG_DEBUG,"%s: m = %d\n", __FUNCTION__, m);
+					do
+					{
+						work_fifo_ready = get_buffer_space();
+						if(work_fifo_ready & (0x1 << i))
+						{
+							break;
+						}
+						else	//work fifo is full, wait for 50ms
+						{
+							//applog(LOG_DEBUG,"%s: chain%d work fifo not ready: 0x%x\n", __FUNCTION__, i, work_fifo_ready);
+							cgsleep_ms(10);
+						}
+					}while(1);
+
+					if(m==0)	//new block
+					{
+						data[0] = NEW_BLOCK_MARKER;
+					}
+					else
+					{
+						data[0] = NORMAL_BLOCK_MARKER;
+					}
+
+					data[1] = i | 0x80; //set chain id and enable it
+
+					if(m==0)
+					{
+						ret = get_BC_write_command();	//disable null work
+						ret &= ~BC_COMMAND_EN_NULL_WORK;
+						set_BC_write_command(ret);
+					}
+					
+					if(m==BM1385_CORE_NUM + 14 - 1)
+					{
+						ret = get_BC_write_command();	//enable null work
+						ret |= BC_COMMAND_EN_NULL_WORK;
+						set_BC_write_command(ret);
+					}
+
+					buf_vil_tw[0] = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+					buf_vil_tw[1] = (work_vil.type << 24) | (work_vil.length << 16) | (work_vil.wc_base++ << 8) | work_vil.mid_num;
+					//buf_vil_tw[2] = work_vil.sno;
+					for(j=2; j<MIDSTATE_LEN/sizeof(unsigned int)+2; j++)
+					{
+                        buf_vil_tw[j] = 0;
+					}
+					for(j=10; j<DATA2_LEN/sizeof(unsigned int)+10; j++)
+					{
+						buf_vil_tw[j] = (work_vil.data2[4*(j-10) + 0] << 24) | (work_vil.data2[4*(j-10) + 1] << 16) | (work_vil.data2[4*(j-10) + 2] << 8) | work_vil.data2[4*(j-10) + 3];
+					}
+
+					set_TW_write_command_vil(buf_vil_tw);
+				}			
+			}
+		}
+		set_dhash_acc_control(get_dhash_acc_control() & (OPERATION_MODE) | VIL_MODE | VIL_MIDSTATE_NUMBER(opt_multi_version));
+	}
 }
 
 
