@@ -1733,13 +1733,14 @@ void check_system_work()
 	copy_time(&tv_start, &tv_end);
 	copy_time(&tv_send_job,&tv_send);
 	bool stop = false;
+	int asic_num, error_asic;
 	while(1)
 	{
 		struct timeval diff;
 		cgtime(&tv_end);
 		cgtime(&tv_send);
 		timersub(&tv_end, &tv_start, &diff);
-		int asic_num = 0, error_asic = 0;
+		asic_num = 0, error_asic = 0;
 		/* Update the hashmeter at most 5 times per second */
 		if (diff.tv_sec > 60)
 		{
@@ -1748,6 +1749,7 @@ void check_system_work()
 				if(dev->chain_exist[i])
 				{
 					int offset = 0;
+					asic_num += dev->chain_asic_num[i];
 					for(j=0;j<dev->chain_asic_num[i];j++)
 					{
 						if(j%8 == 0)
@@ -1766,7 +1768,6 @@ void check_system_work()
 							error_asic++;
 						}
 						dev->chain_asic_nonce[i][j] = 0;
-						asic_num++;
 					}
 					dev->chain_asic_status_string[i][j+offset] = '\0';
 				}
