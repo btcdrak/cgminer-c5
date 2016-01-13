@@ -36,6 +36,8 @@
 //global various
 int fd;											// axi fpga
 int fd_fpga_mem;								// fpga memory
+int fpga_version;
+int pcb_version;
 unsigned int *axi_fpga_addr = NULL;				// axi address
 unsigned int *fpga_mem_addr = NULL;				// fpga memory address
 unsigned int *nonce2_jobid_address = NULL;		// the value should be filled in NONCE2_AND_JOBID_STORE_ADDRESS
@@ -360,6 +362,15 @@ int get_hash_on_plug(void)
 	ret = *(axi_fpga_addr + HASH_ON_PLUG);
 
 	applog(LOG_DEBUG,"%s: HASH_ON_PLUG is 0x%x\n", __FUNCTION__, ret);
+	return ret;
+}
+
+int get_hardware_version(void)
+{
+	int ret = -1;
+	ret = *((int *)(axi_fpga_addr + HARDWARE_VERSION));
+
+	applog(LOG_DEBUG,"%s: HARDWARE_VERSION is 0x%x\n", __FUNCTION__, ret);
 	return ret;
 }
 
@@ -2167,6 +2178,7 @@ int bitmain_c5_init(struct init_config config)
 	uint16_t crc = 0;
 	struct init_config config_parameter;
 	int i=0,x = 0,y = 0;
+	int hardware_version;
 	unsigned int data = 0;
 		
 	memcpy(&config_parameter, &config, sizeof(struct init_config));
@@ -2338,6 +2350,11 @@ int bitmain_c5_init(struct init_config config)
 			dev->chain_asic_status_string[x][y+offset] = '\0';
 		}
 	}
+
+	hardware_version = get_hardware_version();
+	fpga_version = (hardware_version >> 16) & 0x0000ffff;
+	pcb_version = hardware_version & 0x0000ffff;
+	sprintf(g_miner_version, "%d.%d.%d.%d", fpga_version, pcb_version, C5_VERSION, 0);
 	
 	return 0;
 }
@@ -2712,10 +2729,6 @@ char get_status(struct bitmain_c5_info *c5_info)
 	c5_info->length				= sizeof(struct bitmain_c5_info) - sizeof(c5_info->data_type) - sizeof(c5_info->version) - sizeof(c5_info->length);
 	c5_info->chip_value_eft		= 0;
 	c5_info->chain_num			= dev->chain_num;
-	c5_info->hw_version[0]		= 0;
-	c5_info->hw_version[1]		= 0;
-	c5_info->hw_version[2]		= 0;
-	c5_info->hw_version[3]		= 0;
 	c5_info->fan_num			= dev->fan_num;
 	c5_info->temp_num			= dev->temp_num;
 	c5_info->fan_exist			= dev->fan_exist_map;
@@ -2872,11 +2885,6 @@ static void bitmain_c5_detect(__maybe_unused bool hotplug)
 	if (unlikely(!(cgpu->device_data)))
 		quit(1, "Failed to calloc cgpu_info data");
 	a = cgpu->device_data;
-	a->hw_version[0] = 0;
-	a->hw_version[1] = 0;
-	a->hw_version[2] = 0;
-	a->hw_version[3] = 1;
-	sprintf(g_miner_version, "%d.%d.%d.%d", a->hw_version[0], a->hw_version[1], a->hw_version[2], a->hw_version[3]);
 	a->pool0_given_id = 0;
 	a->pool1_given_id = 1;
 	a->pool2_given_id = 2;

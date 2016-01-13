@@ -72,6 +72,7 @@
 
 //ASIC macro define
 //ASIC register address
+#define C5_VERSION				1
 #define CHIP_ADDRESS			0x0
 #define GOLDEN_NONCE_COUNTER	0x8
 #define PLL_PARAMETER			0xc
@@ -208,7 +209,6 @@ struct bitmain_c5_info {
 	uint8_t		reserved1		:7;
 	uint8_t		chain_num;
 	uint16_t	reserved2;
-	uint8_t		hw_version[4];
 	uint8_t		fan_num;
 	uint8_t		temp_num;
 	uint8_t		reserved3[2];
