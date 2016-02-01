@@ -200,6 +200,288 @@ unsigned char CRC5(unsigned char *ptr, unsigned char len)
     return crc;
 }
 
+// pic
+unsigned int get_pic_iic()
+{
+	int ret = -1;
+	ret = *(axi_fpga_addr + IIC_COMMAND);
+
+	//applog(LOG_DEBUG,"%s: IIC_COMMAND is 0x%x\n", __FUNCTION__, ret);
+	return ret;
+}
+
+unsigned char set_pic_iic(unsigned int data)
+{
+	unsigned int ret=0;
+	unsigned char ret_data = 0;
+
+	*((unsigned int *)(axi_fpga_addr + IIC_COMMAND)) = data & 0x7fffffff;
+	//applog(LOG_DEBUG,"%s: set IIC_COMMAND is 0x%x\n", __FUNCTION__, data & 0x7fffffff);
+
+	while(1)
+	{
+		ret = get_pic_iic();
+		if(ret & 0x80000000)
+		{
+			ret_data = (unsigned char)(ret & 0x000000ff);
+			return ret_data;
+		}
+		else
+		{
+			//applog(LOG_DEBUG,"%s: waiting write pic iic\n", __FUNCTION__);
+			cgsleep_us(1000);
+		}
+	}
+}
+
+unsigned char write_pic_iic(bool read, bool reg_addr_valid, unsigned char reg_addr, unsigned char chain, unsigned char data)
+{
+	unsigned int value = 0x00000000;
+	unsigned char ret = 0;
+
+	if(read)
+	{
+		value |= IIC_READ;
+	}
+
+	if(reg_addr_valid)
+	{
+		value |= IIC_REG_ADDR_VALID;
+		value |= IIC_REG_ADDR(reg_addr);
+	}
+
+	value |= IIC_ADDR_HIGH_4_BIT;
+
+	value |= IIC_CHAIN_NUMBER(chain);
+
+	value |= data;
+
+	ret = set_pic_iic(value);
+
+	return ret;
+}
+
+void send_pic_command(unsigned char chain)
+{
+	write_pic_iic(false, false, 0x0, chain, PIC_COMMAND_1);
+	write_pic_iic(false, false, 0x0, chain, PIC_COMMAND_2);
+}
+
+
+void set_pic_iic_flash_addr_pointer(unsigned char chain, unsigned char addr_H, unsigned char addr_L)
+{
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, SET_PIC_FLASH_POINTER);
+	write_pic_iic(false, false, 0x0, chain, addr_H);
+	write_pic_iic(false, false, 0x0, chain, addr_L);
+}
+
+void send_data_to_pic_iic(unsigned char chain, unsigned char command, unsigned char *buf, unsigned char length)
+{
+	unsigned char i=0;
+	
+	write_pic_iic(false, false, 0x0, chain, command);
+	for(i=0; i<length; i++)
+	{
+		write_pic_iic(false, false, 0x0, chain, *(buf + i));
+	}
+}
+
+void get_data_from_pic_iic(unsigned char chain, unsigned char command, unsigned char *buf, unsigned char length)
+{
+	unsigned char i=0;
+	
+	write_pic_iic(false, false, 0x0, chain, command);
+	for(i=0; i<length; i++)
+	{
+		*(buf + i) = write_pic_iic(true, false, 0x0, chain, 0);
+	}
+}
+
+void send_data_to_pic_flash(unsigned char chain, unsigned char *buf)
+{
+	send_pic_command(chain);
+	send_data_to_pic_iic(chain, SEND_DATA_TO_IIC, buf, 16);
+}
+
+void get_data_from_pic_flash(unsigned char chain, unsigned char *buf)
+{
+	send_pic_command(chain);
+	get_data_from_pic_iic(chain, READ_DATA_FROM_IIC, buf, 16);
+}
+
+unsigned char erase_pic_flash(unsigned char chain)
+{
+	unsigned char ret=0xff;
+
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, ERASE_IIC_FLASH);
+	while(1)
+	{
+		cgsleep_us(3000);
+		ret = write_pic_iic(true, false, 0x0, chain, 0);
+		if(ret == 0x0)
+		{
+			printf("erase done\n");
+			return ret;
+		}		
+	}
+}
+
+unsigned char erase_pic_flash_all(unsigned char chain)
+{
+	unsigned char ret=0xff;
+	unsigned int i=0, erase_loop = 0;
+	unsigned char start_addr_h = PIC_FLASH_POINTER_START_ADDRESS_H, start_addr_l = PIC_FLASH_POINTER_START_ADDRESS_L;
+	unsigned char end_addr_h = PIC_FLASH_POINTER_END_ADDRESS_H, end_addr_l = PIC_FLASH_POINTER_END_ADDRESS_L;
+	unsigned int pic_flash_length=0;
+	
+	set_pic_iic_flash_addr_pointer(chain, PIC_FLASH_POINTER_START_ADDRESS_H, PIC_FLASH_POINTER_START_ADDRESS_L);
+
+	pic_flash_length = (((unsigned int)end_addr_h << 8) + end_addr_l) - (((unsigned int)start_addr_h << 8) + start_addr_l) + 1;
+	erase_loop = pic_flash_length/PIC_FLASH_SECTOR_LENGTH;
+	printf("%s: erase_loop = %d\n", __FUNCTION__, erase_loop);
+
+	for(i=0; i<erase_loop; i++)
+	{
+		erase_pic_flash(chain);
+	}
+}
+
+
+unsigned char write_data_into_pic_flash(unsigned char chain)
+{
+	unsigned char ret=0xff;
+
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, WRITE_DATA_INTO_PIC);
+	while(1)
+	{
+		cgsleep_us(10000);
+		ret = write_pic_iic(true, false, 0x0, chain, 0);
+		if(ret == 0x0)
+		{
+			printf("write done\n");
+			return ret;
+		}		
+	}
+}
+
+unsigned char jump_to_app_from_loader(unsigned char chain)
+{
+	unsigned char ret=0xff;
+
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, JUMP_FROM_LOADER_TO_APP);
+	cgsleep_us(100000);
+	/*
+	while(1)
+	{
+		cgsleep_us(1000);
+		ret = write_pic_iic(true, false, 0x0, chain, 0);
+		if(ret == 0x0)
+		{
+			printf("jump to app done\n");
+			return ret;
+		}		
+	}
+	*/
+}
+
+unsigned char reset_iic_pic(unsigned char chain)
+{
+	unsigned char ret=0xff;
+
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, RESET_PIC);
+	cgsleep_us(100000);
+	/*
+	while(1)
+	{		
+		ret = write_pic_iic(true, false, 0x0, chain, 0);
+		if(ret == 0x0)
+		{
+			printf("reset pic done\n");
+			return ret;
+		}
+		cgsleep_us(1000);
+	}
+	*/
+}
+
+void get_pic_iic_flash_addr_pointer(unsigned char chain, unsigned char *addr_H, unsigned char *addr_L)
+{
+	printf("%s\n", __FUNCTION__);
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, GET_PIC_FLASH_POINTER);
+	*addr_H = write_pic_iic(true, false, 0x0, chain, 0);
+	*addr_L = write_pic_iic(true, false, 0x0, chain, 0);
+	printf("%s: *addr_H = 0x%02x, *addr_L = 0x%02x\n", __FUNCTION__, *addr_H, *addr_L);
+}
+
+void set_pic_voltage(unsigned char chain, unsigned char voltage)
+{
+	printf("%s\n", __FUNCTION__);
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, SET_VOLTAGE);
+	write_pic_iic(false, false, 0x0, chain, voltage);
+	cgsleep_us(100000);
+}
+
+void set_voltage_setting_time(unsigned char chain, unsigned char *time)
+{
+	printf("\n--- %s\n", __FUNCTION__);
+	send_pic_command(chain);
+	send_data_to_pic_iic(chain, SET_VOLTAGE_TIME, time, 6);
+	cgsleep_us(100000);
+}
+
+void set_hash_board_id_number(unsigned char chain, unsigned char *id)
+{
+	printf("\n--- %s\n", __FUNCTION__);
+	send_pic_command(chain);
+	send_data_to_pic_iic(chain, SET_HASH_BOARD_ID, id, 12);
+	cgsleep_us(100000);
+}
+
+void get_hash_board_id_number(unsigned char chain, unsigned char *id)
+{
+	printf("%s\n", __FUNCTION__);
+	send_pic_command(chain);
+	get_data_from_pic_iic(chain, GET_HASH_BOARD_ID, id, 12);
+}
+
+void write_host_MAC_and_time(unsigned char chain, unsigned char *buf)
+{
+	printf("\n--- %s\n", __FUNCTION__);
+	send_pic_command(chain);
+	send_data_to_pic_iic(chain, SET_HOST_MAC_ADDRESS, buf, 12);
+	cgsleep_us(100000);
+}
+
+void enable_pic_dc_dc(unsigned char chain)
+{
+	printf("\n--- %s\n", __FUNCTION__);
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, ENABLE_VOLTAGE);
+	write_pic_iic(false, false, 0x0, chain, 1);
+}
+
+void disable_pic_dc_dc(unsigned char chain)
+{
+	printf("\n--- %s\n", __FUNCTION__);
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, ENABLE_VOLTAGE);
+	write_pic_iic(false, false, 0x0, chain, 0);
+}
+
+void pic_heart_beat(unsigned char chain)
+{
+	printf("--- send pic heart beat ... \n");
+	send_pic_command(chain);
+	write_pic_iic(false, false, 0x0, chain, SEND_HEART_BEAT);
+}
+
 //FPGA related
 int get_nonce2_and_job_id_store_address(void)
 {
@@ -269,10 +551,10 @@ int bitmain_axi_init()
 	
 	//check the value in address 0xff200000
 	data = *axi_fpga_addr;
-	if(data != HARDWARE_VERSION_VALUE)
+	if((data & 0x0000FFFF) != HARDWARE_VERSION_VALUE)
 	{
 		applog(LOG_DEBUG,"data = 0x%x, and it's not equal to HARDWARE_VERSION_VALUE : 0x%x\n", data, HARDWARE_VERSION_VALUE);
-		return -1;
+		//return -1;
 	}
 	applog(LOG_DEBUG,"axi_fpga_addr data = 0x%x\n", data);
 
@@ -1744,17 +2026,17 @@ void check_system_work()
 	copy_time(&tv_start, &tv_end);
 	copy_time(&tv_send_job,&tv_send);
 	bool stop = false;
-	int asic_num, error_asic;
+	int asic_num = 0, error_asic = 0;
 	while(1)
 	{
 		struct timeval diff;
 		cgtime(&tv_end);
 		cgtime(&tv_send);
 		timersub(&tv_end, &tv_start, &diff);
-		asic_num = 0, error_asic = 0;
-		/* Update the hashmeter at most 5 times per second */
+		
 		if (diff.tv_sec > 60)
 		{
+			asic_num = 0, error_asic = 0;
 			for(i=0;i<BITMAIN_MAX_CHAIN_NUM;i++)
 			{
 				if(dev->chain_exist[i])
@@ -2353,7 +2635,7 @@ int bitmain_c5_init(struct init_config config)
 
 	hardware_version = get_hardware_version();
 	fpga_version = (hardware_version >> 16) & 0x0000ffff;
-	pcb_version = hardware_version & 0x0000ffff;
+	pcb_version = hardware_version & 0x000000ff;
 	sprintf(g_miner_version, "%d.%d.%d.%d", fpga_version, pcb_version, C5_VERSION, 0);
 	
 	return 0;

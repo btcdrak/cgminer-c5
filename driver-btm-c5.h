@@ -13,6 +13,7 @@
 #define TEMPERATURE_4_7					(0x00000024/sizeof(int))
 #define TEMPERATURE_8_11				(0x00000028/sizeof(int))
 #define TEMPERATURE_12_15				(0x0000002c/sizeof(int))
+#define IIC_COMMAND						(0x00000030/sizeof(int))
 #define TW_WRITE_COMMAND				(0x00000040/sizeof(int))
 #define QN_WRITE_DATA_COMMAND			(0x00000080/sizeof(int))
 #define FAN_CONTROL						(0x00000084/sizeof(int))
@@ -22,6 +23,7 @@
 #define SNO								(0x00000094/sizeof(int))
 #define BC_WRITE_COMMAND				(0x000000c0/sizeof(int))
 #define BC_COMMAND_BUFFER				(0x000000c4/sizeof(int))
+#define FPGA_CHIP_ID_ADDR				(0x000000f0/sizeof(int))
 #define DHASH_ACC_CONTROL				(0x00000100/sizeof(int))
 #define COINBASE_AND_NONCE2_LENGTH		(0x00000104/sizeof(int))
 #define WORK_NONCE_2					(0x00000108/sizeof(int))
@@ -106,6 +108,37 @@
 #define TFS(x)					((x & 0x03) << 5)
 
 
+// Pic
+#define PIC_FLASH_POINTER_START_ADDRESS_H	0x03
+#define PIC_FLASH_POINTER_START_ADDRESS_L	0x00
+#define PIC_FLASH_POINTER_END_ADDRESS_H		0x0f
+#define PIC_FLASH_POINTER_END_ADDRESS_L		0x7f
+#define PIC_FLASH_LENGTH					(((unsigned int)PIC_FLASH_POINTER_END_ADDRESS_H<<8 + PIC_FLASH_POINTER_END_ADDRESS_L) - ((unsigned int)PIC_FLASH_POINTER_START_ADDRESS_H<<8 + PIC_FLASH_POINTER_START_ADDRESS_L) + 1)
+#define PIC_FLASH_SECTOR_LENGTH				32
+#define PIC_COMMAND_1						0x55
+#define PIC_COMMAND_2						0xaa
+#define SET_PIC_FLASH_POINTER				0x01
+#define SEND_DATA_TO_IIC					0x02	// just send data into pic's cache
+#define READ_DATA_FROM_IIC					0x03
+#define ERASE_IIC_FLASH						0x04	// erase 32 bytes one time
+#define WRITE_DATA_INTO_PIC					0x05	// tell pic write data into flash from cache
+#define JUMP_FROM_LOADER_TO_APP				0x06
+#define RESET_PIC							0x07
+#define GET_PIC_FLASH_POINTER				0x08
+#define SET_VOLTAGE							0x10
+#define SET_VOLTAGE_TIME					0x11
+#define SET_HASH_BOARD_ID					0x12
+#define GET_HASH_BOARD_ID					0x13
+#define SET_HOST_MAC_ADDRESS				0x14
+#define ENABLE_VOLTAGE						0x15
+#define SEND_HEART_BEAT						0x16
+#define HEART_BEAT_TIME_GAP					10		// 10s
+#define IIC_READ							(1 << 25)
+#define IIC_WRITE							(~IIC_READ)
+#define IIC_REG_ADDR_VALID					(1 << 24)
+#define IIC_ADDR_HIGH_4_BIT					(0x0A << 20)
+#define IIC_CHAIN_NUMBER(x)					((x & 0x0f) << 16)
+#define IIC_REG_ADDR(x)						((x & 0xff) << 8)
 
 
 
@@ -113,7 +146,7 @@
 //other FPGA macro define
 #define TOTAL_LEN						0x160
 #define FPGA_MEM_TOTAL_LEN				(16*1024*1024)	// 16M bytes
-#define HARDWARE_VERSION_VALUE			0x55ff0501
+#define HARDWARE_VERSION_VALUE			0xC501
 #define NONCE2_AND_JOBID_STORE_SPACE	(2*1024*1024)	// 2M bytes
 #define NONCE2_AND_JOBID_STORE_SPACE_ORDER	9			// for 2M bytes space
 #define JOB_STORE_SPACE					(1 << 16)		// for 64K bytes space
