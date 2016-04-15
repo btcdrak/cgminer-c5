@@ -1478,6 +1478,9 @@ static struct opt_table opt_config_table[] = {
 	OPT_WITH_ARG("--bitmain-freq",
 			set_int_0_to_9999,opt_show_intval, &opt_bitmain_c5_freq,
 			"Set frequency"),
+	OPT_WITH_ARG("--bitmain-voltage",
+			set_int_0_to_9999,opt_show_intval, &opt_bitmain_c5_voltage,
+			"Set voltage"),
 	OPT_WITHOUT_ARG("--bitmain-use-vil",
 			opt_set_bool, &opt_bitmain_new_cmd_type_vil,
 			"Set bitmain miner use vil mode"),
@@ -6291,7 +6294,7 @@ static void hashmeter(int thr_id, uint64_t hashes_done)
 		global_hashrate = llround(total_rolling) * 1000000;
 		g_local_mhashes_dones[g_local_mhashes_index] = 0;
 	}
-		g_local_mhashes_dones[g_local_mhashes_index] += hashes_done;
+	g_local_mhashes_dones[g_local_mhashes_index] += hashes_done;
 	total_secs = tdiff(&total_tv_end, &total_tv_start);
 
 	if(total_secs - last_total_secs > 86400) {
@@ -7679,6 +7682,21 @@ void inc_hw_errors(struct thr_info *thr)
 	thr->cgpu->drv->hw_error(thr);
 }
 
+void inc_hw_errors_with_diff(struct thr_info *thr, int diff)
+{
+	applog(LOG_ERR, "%s%d: invalid nonce - HW error", thr->cgpu->drv->name,
+	       thr->cgpu->device_id);
+
+	mutex_lock(&stats_lock);
+	hw_errors += diff ;
+	thr->cgpu->hw_errors += diff;
+	mutex_unlock(&stats_lock);
+
+	thr->cgpu->drv->hw_error(thr);
+}
+
+
+
 void inc_dev_status(int max_fan, int max_temp)
 {
 	mutex_lock(&stats_lock);
@@ -8430,7 +8448,6 @@ void *miner_thread(void *userdata)
 
 	cgpu->last_device_valid_work = time(NULL);
 	drv->hash_work(mythr);
-	printf("%s exit",__FUNCTION__);
 	drv->thread_shutdown(mythr);
 out:
 	return NULL;

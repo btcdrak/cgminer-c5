@@ -95,7 +95,7 @@
 //other ASIC macro define
 #define MAX_BAUD_DIVIDER		26
 #define DEFAULT_BAUD_DIVIDER	26
-#define BM1385_CORE_NUM			50
+#define BM1385_CORE_NUM			114
 #define VIL_COMMAND_TYPE		(0x02 << 5)
 #define VIL_ALL					(0x01 << 4)
 #define PAT						(0x01 << 7)
@@ -115,6 +115,8 @@
 #define PIC_FLASH_POINTER_END_ADDRESS_L		0x7f
 #define PIC_FLASH_LENGTH					(((unsigned int)PIC_FLASH_POINTER_END_ADDRESS_H<<8 + PIC_FLASH_POINTER_END_ADDRESS_L) - ((unsigned int)PIC_FLASH_POINTER_START_ADDRESS_H<<8 + PIC_FLASH_POINTER_START_ADDRESS_L) + 1)
 #define PIC_FLASH_SECTOR_LENGTH				32
+#define PIC_SOFTWARE_VERSION_LENGTH			1
+#define PIC_VOLTAGE_TIME_LENGTH				6
 #define PIC_COMMAND_1						0x55
 #define PIC_COMMAND_2						0xaa
 #define SET_PIC_FLASH_POINTER				0x01
@@ -132,6 +134,12 @@
 #define SET_HOST_MAC_ADDRESS				0x14
 #define ENABLE_VOLTAGE						0x15
 #define SEND_HEART_BEAT						0x16
+#define GET_PIC_SOFTWARE_VERSION			0x17
+#define GET_VOLTAGE							0x18
+#define GET_DATE							0x19
+#define GET_WHICH_MAC						0x20
+#define GET_MAC								0x21
+
 #define HEART_BEAT_TIME_GAP					10		// 10s
 #define IIC_READ							(1 << 25)
 #define IIC_WRITE							(~IIC_READ)
@@ -350,6 +358,8 @@ struct all_parameters {
 	unsigned char	max_asic_num_in_one_chain;
 	unsigned char	baud;
 	unsigned char	diff;
+	uint8_t			fan_eft;
+	uint8_t			fan_pwm;
 	
 	unsigned short int	frequency;
 	char frequency_t[10];
@@ -402,6 +412,15 @@ struct vil_work
     uint8_t data2[12];
 };
 
+struct vil_work_1387
+{
+	uint8_t work_type;
+	uint8_t chain_id;
+    uint8_t reserved1[2];
+	uint32_t work_count;
+	uint8_t data[12];
+   	uint8_t midstate[32];	
+};
 
 
 static struct freq_pll freq_pll_1385[] = {
@@ -510,6 +529,7 @@ static struct freq_pll freq_pll_1385[] = {
 extern bool opt_bitmain_fan_ctrl;
 extern int opt_bitmain_fan_pwm;
 extern int opt_bitmain_c5_freq;
+extern int opt_bitmain_c5_voltage;
 extern bool opt_bitmain_new_cmd_type_vil;
 
 #endif
