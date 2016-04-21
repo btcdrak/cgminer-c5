@@ -82,6 +82,8 @@
 #define HASH_COUNTING_NUMBER	0x14
 #define TICKET_MASK				0x18
 #define MISC_CONTROL			0x1c
+#define GENERAL_I2C_COMMAND		0X20
+
 //ASIC command
 #define SET_ADDRESS				0x1
 #define SET_PLL_DIVIDER2		0x2
@@ -175,6 +177,7 @@
 
 // macro define about miner
 #define BITMAIN_MAX_CHAIN_NUM			16 
+#define CHAIN_ASIC_NUM					63
 #define BITMAIN_MAX_FAN_NUM				8				// FPGA just can supports 8 fan
 #define BITMAIN_DEFAULT_ASIC_NUM		64				// max support 64 ASIC on 1 HASH board
 #define MIDSTATE_LEN					32
@@ -196,7 +199,7 @@
 #define PWM_ADJ_SCALE					9/10
 //use for hash test
 #define TEST_DHASH 0
-#define DEVICE_DIFF 5
+#define DEVICE_DIFF 8
 //use for status check
 #define RED_LED_DEV "/sys/class/leds/hps_led2/brightness"
 #define GREEN_LED_DEV "/sys/class/leds/hps_led0/brightness"
@@ -336,6 +339,8 @@ struct all_parameters {
 	unsigned int	nonce_error;
 	unsigned int	chain_asic_exist[BITMAIN_MAX_CHAIN_NUM][8];
 	unsigned int	chain_asic_status[BITMAIN_MAX_CHAIN_NUM][8];
+	int16_t			chain_asic_temp[BITMAIN_MAX_CHAIN_NUM][8][3];
+	int8_t			chain_asic_iic[CHAIN_ASIC_NUM];
 	uint64_t		chain_hw[BITMAIN_MAX_CHAIN_NUM];
 	uint64_t		chain_asic_nonce[BITMAIN_MAX_CHAIN_NUM][BITMAIN_DEFAULT_ASIC_NUM];
 	char			chain_asic_status_string[BITMAIN_MAX_CHAIN_NUM][BITMAIN_DEFAULT_ASIC_NUM+10];
@@ -373,7 +378,7 @@ volatile struct nonce_buf {
 	unsigned int loop_back;
 	pthread_mutex_t spinlock;	
 	struct nonce_content nonce_buffer[MAX_NONCE_NUMBER_IN_FIFO];
-};
+}__attribute__((packed, aligned(4)));
 
 struct reg_content {
 	unsigned int reg_value;
@@ -388,7 +393,7 @@ volatile struct reg_buf {
 	unsigned int loop_back;
 	pthread_mutex_t spinlock;	
 	struct reg_content reg_buffer[MAX_NONCE_NUMBER_IN_FIFO];
-};
+}__attribute__((packed, aligned(4)));
 
 struct freq_pll
 {
