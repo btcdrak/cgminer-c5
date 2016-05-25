@@ -385,6 +385,7 @@ char g_miner_type[256] = {0};
 double rolling1, rolling5, rolling15;
 double total_rolling;
 double total_mhashes_done;
+char displayed_hash_rate[16] = {0};
 static struct timeval total_tv_start, total_tv_end;
 static struct timeval restart_tv_start, update_tv_start;
 
@@ -459,7 +460,7 @@ static struct stratum_share *stratum_shares = NULL;
 
 char *opt_socks_proxy = NULL;
 int opt_suggest_diff;
-int opt_multi_version;
+int opt_multi_version = 1;
 static const char def_conf[] = "cgminer.conf";
 static char *default_config;
 static bool config_loaded;
@@ -2884,8 +2885,8 @@ static void suffix_string(uint64_t val, char *buf, size_t bufsiz, int sigdigits)
 		/* Always show sigdigits + 1, padded on right with zeroes
 		 * followed by suffix */
 		int ndigits = sigdigits - 1 - (dval > 0.0 ? floor(log10(dval)) : 0);
-
 		snprintf(buf, bufsiz, "%*.*f%s", sigdigits + 1, ndigits, dval, suffix);
+		
 	}
 }
 
@@ -7296,7 +7297,7 @@ bool submit_nonce2_nonce(struct thr_info *thr, struct pool *pool, struct pool *r
 #endif
 
 
-#if USE_BITMAIN_C5
+#if defined USE_BITMAIN_C5
 void get_work_by_nonce2(struct thr_info *thr, struct work **work,struct pool *pool, struct pool *real_pool,
 			 uint32_t nonce2, uint32_t ntime, uint32_t version)
 {
@@ -7307,7 +7308,7 @@ void get_work_by_nonce2(struct thr_info *thr, struct work **work,struct pool *po
 
 	cg_wlock(&pool->data_lock);
 	pool->nonce2 = nonce2;
-	if(pool->support_vil)
+	//if(pool->support_vil)
 		snprintf(pool->bbversion, 9, "%08x", version);
 	cg_wunlock(&pool->data_lock);
 

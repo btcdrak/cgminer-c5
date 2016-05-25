@@ -97,7 +97,7 @@
 //other ASIC macro define
 #define MAX_BAUD_DIVIDER		26
 #define DEFAULT_BAUD_DIVIDER	26
-#define BM1385_CORE_NUM			114
+#define BM1387_CORE_NUM			114
 #define VIL_COMMAND_TYPE		(0x02 << 5)
 #define VIL_ALL					(0x01 << 4)
 #define PAT						(0x01 << 7)
@@ -141,6 +141,10 @@
 #define GET_DATE							0x19
 #define GET_WHICH_MAC						0x20
 #define GET_MAC								0x21
+#define WR_TEMP_OFFSET_VALUE				0x22
+#define RD_TEMP_OFFSET_VALUE				0x23
+
+
 
 #define HEART_BEAT_TIME_GAP					10		// 10s
 #define IIC_READ							(1 << 25)
@@ -191,10 +195,17 @@
 #define READ_JOB_TYPE					0xa2
 #define CHECK_SYSTEM_TIME_GAP			10000			// 10s
 //fan
+#define MIN_FAN_NUM						2
+#define MAX_FAN_SPEED					6000
 #define MIN_PWM_PERCENT					20
 #define MAX_PWM_PERCENT					100
 #define TEMP_INTERVAL					2	
-#define PWM_ADJUST_FACTOR				((100 - MIN_PWM_PERCENT)/(60-35))	
+#define MAX_TEMP						85
+#define MAX_FAN_TEMP 					75
+#define MIN_FAN_TEMP 					35
+#define HAVE_TEMP 						0xF4
+
+#define PWM_ADJUST_FACTOR				((100 - MIN_PWM_PERCENT)/(MAX_FAN_TEMP-MIN_FAN_TEMP))	
 #define PWM_SCALE						50	
 #define PWM_ADJ_SCALE					9/10
 //use for hash test
@@ -203,7 +214,7 @@
 //use for status check
 #define RED_LED_DEV "/sys/class/leds/hps_led2/brightness"
 #define GREEN_LED_DEV "/sys/class/leds/hps_led0/brightness"
-#define MAX_TEMP 80
+
 
 
 struct init_config {
@@ -356,6 +367,7 @@ struct all_parameters {
 	unsigned char	chain_num;
 	unsigned char	fan_num;
 	unsigned char	temp_num;
+	unsigned int	fan_speed_top1;
 	int				temp_top1;
 	int				temp_top1_last;
 	unsigned char	corenum;
@@ -375,8 +387,6 @@ volatile struct nonce_buf {
 	unsigned int p_wr;
 	unsigned int p_rd;
 	unsigned int nonce_num;
-	unsigned int loop_back;
-	pthread_mutex_t spinlock;	
 	struct nonce_content nonce_buffer[MAX_NONCE_NUMBER_IN_FIFO];
 }__attribute__((packed, aligned(4)));
 
@@ -390,8 +400,6 @@ volatile struct reg_buf {
 	unsigned int p_wr;
 	unsigned int p_rd;
 	unsigned int reg_value_num;
-	unsigned int loop_back;
-	pthread_mutex_t spinlock;	
 	struct reg_content reg_buffer[MAX_NONCE_NUMBER_IN_FIFO];
 }__attribute__((packed, aligned(4)));
 
@@ -536,6 +544,9 @@ extern int opt_bitmain_fan_pwm;
 extern int opt_bitmain_c5_freq;
 extern int opt_bitmain_c5_voltage;
 extern bool opt_bitmain_new_cmd_type_vil;
+extern int ADD_FREQ;
+extern int ADD_FREQ1;
+
 
 #endif
 

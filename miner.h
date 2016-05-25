@@ -1206,6 +1206,7 @@ extern double rolling1, rolling5, rolling15;
 extern double total_rolling;
 extern double total_mhashes_done;
 extern double g_displayed_rolling;
+extern char displayed_hash_rate[16];
 extern unsigned int new_blocks;
 extern unsigned int found_blocks;
 extern int g_max_fan, g_max_temp;
