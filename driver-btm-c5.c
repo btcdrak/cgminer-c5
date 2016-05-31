@@ -4479,17 +4479,23 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
                 continue;
         }
         c_pool = pools[pool->pool_no];
-        //get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,version);
-        //h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
+        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,version);
+        h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
+        free_work(work);
+		/*
 		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x4);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
+        free_work(work);
 		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x40000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
+        free_work(work);
 		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x80000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
+        free_work(work);
 		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0xc0000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
+		*/
     }
     cg_runlock(&info->update_lock);
     pthread_mutex_unlock(&nonce_mutex);
@@ -4674,7 +4680,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
         root = api_add_uint(root, fan_name, &(dev->fan_speed_value[i]), copy_data);
     }
 
-    root = api_add_uint8(root, "temp_num", &(dev->temp_num), copy_data);
+    root = api_add_uint8(root, "temp_num", &(dev->chain_num), copy_data);
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
         char temp_name[10];
