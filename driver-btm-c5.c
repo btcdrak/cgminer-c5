@@ -1310,7 +1310,7 @@ int get_all_temperature()
 
     if((dev->temp_top1 - dev->temp_top1_last < 2) && (dev->temp_top1 - dev->temp_top1_last > -2))
     {
-        dev->temp_top1 = dev->temp_top1_last;
+        dev->temp_top1_last = dev->temp_top1;
     }
     return ret_value;
 }
@@ -2098,6 +2098,7 @@ void read_temp_func()
     }
     while(1)
     {
+        temp_top = 0;
         for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
         {
             if(dev->chain_exist[i] == 1)
@@ -2127,7 +2128,7 @@ void read_temp_func()
             }
         }
         dev->temp_top1 = temp_top;
-        sleep(2);
+        sleep(1);
     }
 }
 
