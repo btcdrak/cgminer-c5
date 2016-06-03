@@ -73,7 +73,7 @@ bool opt_bitmain_fan_ctrl = false;
 int opt_bitmain_fan_pwm = 0;
 int opt_bitmain_c5_freq = 600;
 int opt_bitmain_c5_voltage = 176;
-int ADD_FREQ = 0;
+int ADD_FREQ = 6;
 int ADD_FREQ1 = 0;
 uint8_t de_voltage = 176;
 
@@ -274,12 +274,14 @@ unsigned char set_pic_iic(unsigned int data)
         }
     }
 }
-
+//#define IIC_OK
 unsigned char write_pic_iic(bool read, bool reg_addr_valid, unsigned char reg_addr, unsigned char chain, unsigned char data)
 {
     unsigned int value = 0x00000000;
     unsigned char ret = 0;
-
+#ifdef IIC_OK
+	return 0;
+#endif
     if(read)
     {
         value |= IIC_READ;
@@ -613,7 +615,7 @@ int bitmain_axi_init()
     }
     applog(LOG_DEBUG,"mmap axi_fpga_addr = 0x%x\n", axi_fpga_addr);
 
-    //check the value in address 0xff200000
+    //check the value in address 0x43c00000
     data = *axi_fpga_addr;
     if((data & 0x0000FFFF) != HARDWARE_VERSION_VALUE)
     {
@@ -2678,7 +2680,7 @@ void check_system_work()
                     for(j=0; j<dev->chain_asic_num[i]; j++)
                     {
                         avg_num += dev->chain_asic_nonce[i][j];
-                        applog(LOG_DEBUG,"%s: chain %d asic %d asic_nonce_num %d", __FUNCTION__, i,j,dev->chain_asic_nonce[i][j]);
+                        applog(LOG_NOTICE,"%s: chain %d asic %d asic_nonce_num %d", __FUNCTION__, i,j,dev->chain_asic_nonce[i][j]);
                     }
                 }
             }
@@ -2725,6 +2727,7 @@ void check_system_work()
         check_fan();
         set_PWM_according_to_temperature();
         timersub(&tv_send, &tv_send_job, &diff);
+		/*
         if(diff.tv_sec > 120 || dev->temp_top1 > MAX_TEMP
            || dev->fan_num < MIN_FAN_NUM || dev->fan_speed_top1 < (MAX_FAN_SPEED * dev->fan_pwm / 150))
         {
@@ -2743,13 +2746,14 @@ void check_system_work()
             if (!once_error)
                 status_error = false;
         }
+        */
 
         if(error_asic > asic_num/5 || asic_num == 0)
         {
             stop = true;
         }
-
-        set_led(stop);
+		status_error = false; //debug for xilinx
+        set_led(true);
 
         cgsleep_ms(1000);
     }
@@ -3625,30 +3629,31 @@ int bitmain_c5_init(struct init_config config)
 #endif
 
 
-#if 0
+#if 1
     for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
         if(dev->chain_exist[i] == 1 && dev->chain_asic_num[i] == CHAIN_ASIC_NUM)
         {
-            set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x54,i);
+            //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x54,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x58,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x5c,i);
-            set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x60,i);
+            //set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x60,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x64,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x68,i);
             set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x6c,i);
-            //set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x70,i);
-            //set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x74,i);
-            set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x78,i);
+            set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x70,i);
+            set_frequency_with_addr(dev->frequency + ADD_FREQ,0,0x74,i);
+            //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x78,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x7c,i);
             //set_frequency_with_addr(dev->frequency + ADD_FREQ1,0,0x80,i);
         }
     }
 #endif
+	check_asic_reg(PLL_PARAMETER);
     //set big timeout value for open core
     //set_time_out_control((MAX_TIMEOUT_VALUE - 100) | TIME_OUT_VALID);
     set_time_out_control(0xc350 | TIME_OUT_VALID);
-
+    
     open_core();
 
     //set real timeout back
