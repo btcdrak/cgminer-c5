@@ -3517,10 +3517,10 @@ int bitmain_c5_init(struct init_config config)
             pthread_mutex_unlock(&iic_mutex);
         }
     }
-	
+
     cgsleep_ms(100);
 
-	if(config_parameter.reset)
+    if(config_parameter.reset)
     {
         set_QN_write_data_command(RESET_HASH_BOARD | RESET_ALL | RESET_TIME(15));
         while(get_QN_write_data_command() & RESET_HASH_BOARD)
@@ -3541,8 +3541,8 @@ int bitmain_c5_init(struct init_config config)
 
     software_set_address();
     cgsleep_ms(10);
-	
-	check_asic_reg(CHIP_ADDRESS);
+
+    check_asic_reg(CHIP_ADDRESS);
     cgsleep_ms(10);
 
     set_asic_ticket_mask(63);
@@ -3705,8 +3705,8 @@ int bitmain_c5_init(struct init_config config)
     }
 
     hardware_version = get_hardware_version();
-    fpga_version = (hardware_version >> 16) & 0x0000ffff;
-    pcb_version = hardware_version & 0x000000ff;
+    pcb_version = (hardware_version >> 16) & 0x0000ffff;
+    fpga_version = hardware_version & 0x000000ff;
     sprintf(g_miner_version, "%d.%d.%d.%d", fpga_version, pcb_version, C5_VERSION, 0);
 
     return 0;
@@ -4430,7 +4430,7 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
 
         nonce_read_out.nonce_num--;
 
-		if(nonce3 != last_nonce3 || work_id != last_workid )
+        if(nonce3 != last_nonce3 || work_id != last_workid )
         {
             last_nonce3 = nonce3;
             last_workid = work_id;
@@ -4483,20 +4483,20 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
         get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,version);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-		/*
-		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x4);
+        /*
+        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x4);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x40000004);
+        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x40000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x80000004);
+        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x80000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-		get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0xc0000004);
+        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0xc0000004);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-		*/
+        */
     }
     cg_runlock(&info->update_lock);
     pthread_mutex_unlock(&nonce_mutex);
