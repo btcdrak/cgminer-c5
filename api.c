@@ -518,13 +518,13 @@ struct CODES {
 #endif
  { SEVERITY_SUCC,  MSG_NUMPGA,	PARAM_NONE,	"PGA count" },
  { SEVERITY_SUCC,  MSG_NUMASC,	PARAM_NONE,	"ASC count" },
- { SEVERITY_SUCC,  MSG_VERSION,	PARAM_NONE,	"CGMiner versions" },
+ { SEVERITY_SUCC,  MSG_VERSION,	PARAM_NONE,	"BMMiner versions" },
  { SEVERITY_ERR,   MSG_INVJSON,	PARAM_NONE,	"Invalid JSON" },
  { SEVERITY_ERR,   MSG_MISCMD,	PARAM_CMD,	"Missing JSON '%s'" },
  { SEVERITY_ERR,   MSG_MISPID,	PARAM_NONE,	"Missing pool id parameter" },
  { SEVERITY_ERR,   MSG_INVPID,	PARAM_POOLMAX,	"Invalid pool id %d - range is 0 - %d" },
  { SEVERITY_SUCC,  MSG_SWITCHP,	PARAM_POOL,	"Switching to pool %d:'%s'" },
- { SEVERITY_SUCC,  MSG_MINECONFIG,PARAM_NONE,	"CGMiner config" },
+ { SEVERITY_SUCC,  MSG_MINECONFIG,PARAM_NONE,	"BMMiner config" },
  { SEVERITY_ERR,   MSG_MISFN,	PARAM_NONE,	"Missing save filename parameter" },
  { SEVERITY_ERR,   MSG_BADFN,	PARAM_STR,	"Can't open or create save file '%s'" },
  { SEVERITY_SUCC,  MSG_SAVED,	PARAM_STR,	"Configuration saved to file '%s'" },
@@ -546,13 +546,13 @@ struct CODES {
  { SEVERITY_SUCC,  MSG_REMPOOL, PARAM_BOTH,	"Removed pool %d:'%s'" },
  { SEVERITY_SUCC,  MSG_NOTIFY,	PARAM_NONE,	"Notify" },
  { SEVERITY_SUCC,  MSG_DEVDETAILS,PARAM_NONE,	"Device Details" },
- { SEVERITY_SUCC,  MSG_MINESTATS,PARAM_NONE,	"CGMiner stats" },
+ { SEVERITY_SUCC,  MSG_MINESTATS,PARAM_NONE,	"BMMiner stats" },
  { SEVERITY_ERR,   MSG_MISCHK,	PARAM_NONE,	"Missing check cmd" },
  { SEVERITY_SUCC,  MSG_CHECK,	PARAM_NONE,	"Check command" },
  { SEVERITY_ERR,   MSG_MISBOOL,	PARAM_NONE,	"Missing parameter: true/false" },
  { SEVERITY_ERR,   MSG_INVBOOL,	PARAM_NONE,	"Invalid parameter should be true or false" },
  { SEVERITY_SUCC,  MSG_FOO,	PARAM_BOOL,	"Failover-Only set to %s" },
- { SEVERITY_SUCC,  MSG_MINECOIN,PARAM_NONE,	"CGMiner coin" },
+ { SEVERITY_SUCC,  MSG_MINECOIN,PARAM_NONE,	"BMMiner coin" },
  { SEVERITY_SUCC,  MSG_DEBUGSET,PARAM_NONE,	"Debug settings" },
 #ifdef HAVE_AN_FPGA
  { SEVERITY_SUCC,  MSG_PGAIDENT,PARAM_PGA,	"Identify command sent to PGA%d" },
@@ -1936,7 +1936,7 @@ static void apiversion(struct io_data *io_data, __maybe_unused SOCKETTYPE c, __m
 	message(io_data, MSG_VERSION, 0, NULL, isjson);
 	io_open = io_add(io_data, isjson ? COMSTR JSON_VERSION : _VERSION COMSTR);
 
-	root = api_add_string(root, "CGMiner", VERSION, false);
+	root = api_add_string(root, "BMMiner", VERSION, false);
 	root = api_add_const(root, "API", APIVERSION, false);
 	root = api_add_string(root, "Miner", g_miner_version, false);
 	root = api_add_string(root, "CompileTime", g_miner_compiletime, false);
@@ -3395,7 +3395,7 @@ static void minerstats(struct io_data *io_data, __maybe_unused SOCKETTYPE c, __m
 	if (isjson)
 		io_open = io_add(io_data, COMSTR JSON_MINESTATS);
 
-	root = api_add_string(root, "CGMiner", VERSION, false);
+	root = api_add_string(root, "BMMiner", VERSION, false);
 	root = api_add_string(root, "Miner", g_miner_version, false);
 	root = api_add_string(root, "CompileTime", g_miner_compiletime, false);
 	root = api_add_string(root, "Type", g_miner_type, false);
@@ -3415,13 +3415,6 @@ static void minerstats(struct io_data *io_data, __maybe_unused SOCKETTYPE c, __m
 			i = itemstats(io_data, i, id, &(cgpu->cgminer_stats), NULL, extra, cgpu, isjson);
 		}
 	}
-	/*
-	for (j = 0; j < total_pools; j++) {
-		struct pool *pool = pools[j];
-
-		sprintf(id, "POOL%d", j);
-		i = itemstats(io_data, i, id, &(pool->cgminer_stats), &(pool->cgminer_pool_stats), NULL, NULL, isjson);
-	}*/
 
 	if (isjson && io_open)
 		io_close(io_data);
@@ -4642,7 +4635,7 @@ static void *quit_thread(__maybe_unused void *userdata)
 	mutex_unlock(&quit_restart_lock);
 
 	if (opt_debug)
-		applog(LOG_DEBUG, "API: killing cgminer");
+		applog(LOG_DEBUG, "API: killing bmminer");
 
 	kill_work();
 
@@ -4656,7 +4649,7 @@ static void *restart_thread(__maybe_unused void *userdata)
 	mutex_unlock(&quit_restart_lock);
 
 	if (opt_debug)
-		applog(LOG_DEBUG, "API: restarting cgminer");
+		applog(LOG_DEBUG, "API: restarting bmminer");
 
 	app_restart();
 
@@ -4729,7 +4722,7 @@ static void mcast()
 	char port_s[10], came_from_port[10];
 	struct addrinfo hints, *res, *host, *client;
 
-	char expect[] = "cgminer-"; // first 8 bytes constant
+	char expect[] = "bmminer-"; // first 8 bytes constant
 	char *expect_code;
 	size_t expect_code_len;
 	char buf[1024];

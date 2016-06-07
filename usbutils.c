@@ -3696,7 +3696,7 @@ int _usb_ftdi_set_latency(struct cgpu_info *cgpu, int intinfo)
 
 	if (cgpu->usbdev) {
 		if (cgpu->usbdev->usb_type != USB_TYPE_FTDI) {
-			applog(LOG_ERR, "%s: cgid %d latency request on non-FTDI device",
+			applog(LOG_ERR, "%s: bmgid %d latency request on non-FTDI device",
 				cgpu->drv->name, cgpu->cgminer_id);
 			err = LIBUSB_ERROR_NOT_SUPPORTED;
 		} else if (cgpu->usbdev->found->latency == LATENCY_UNUSED) {
@@ -3714,7 +3714,7 @@ int _usb_ftdi_set_latency(struct cgpu_info *cgpu, int intinfo)
 
 	DEVWUNLOCK(cgpu, pstate);
 
-	applog(LOG_DEBUG, "%s: cgid %d %s got err %d",
+	applog(LOG_DEBUG, "%s: bmgid %d %s got err %d",
 				cgpu->drv->name, cgpu->cgminer_id,
 				usb_cmdname(C_LATENCY), err);
 
@@ -4157,7 +4157,7 @@ fail:
 	if (is_in_use_bd(bus_number, device_address))
 		return false;
 
-	snprintf(name, sizeof(name), "/tmp/cgminer-usb-%d-%d", (int)bus_number, (int)device_address);
+	snprintf(name, sizeof(name), "/tmp/bmminer-usb-%d-%d", (int)bus_number, (int)device_address);
 	fd = open(name, O_CREAT|O_RDONLY, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 	if (fd == -1) {
 		applog(LOG_ERR, "%s USB open failed '%s' err (%d) %s",
@@ -4212,7 +4212,7 @@ fila:
 	char name[64];
 	int fd;
 
-	snprintf(name, sizeof(name), "/tmp/cgminer-usb-%d-%d", (int)bus_number, (int)device_address);
+	snprintf(name, sizeof(name), "/tmp/bmminer-usb-%d-%d", (int)bus_number, (int)device_address);
 
 	fd = in_use_get_fd(bus_number, device_address);
 	if (fd < 0)

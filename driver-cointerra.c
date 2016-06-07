@@ -1228,7 +1228,7 @@ static struct api_data *cta_api_stats(struct cgpu_info *cgpu)
 	root = api_add_uint64(root, "Calc hashrate", &ghs, true);
 	ghs = (info->tot_hashes - info->tot_reset_hashes) / dev_runtime;
 	root = api_add_uint64(root, "Hashrate", &ghs, true);
-	//root = api_add_uint64(root, "cgminer 15m Hashrate", &cgpu->rolling15, true);
+	//root = api_add_uint64(root, "bmminer 15m Hashrate", &cgpu->rolling15, true);
 	// get runtime in 30 second steps
 	runtime = runtime / 30;
 	// store the current hashes

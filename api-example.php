@@ -1,7 +1,5 @@
 <?php
-#
-# Sample Socket I/O to CGMiner API
-#
+
 function getsock($addr, $port)
 {
  $socket = null;

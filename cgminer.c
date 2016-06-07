@@ -467,7 +467,7 @@ static struct stratum_share *stratum_shares = NULL;
 char *opt_socks_proxy = NULL;
 int opt_suggest_diff;
 int opt_multi_version = 1;
-static const char def_conf[] = "cgminer.conf";
+static const char def_conf[] = "bmminer.conf";
 static char *default_config;
 static bool config_loaded;
 static int include_count;
@@ -1315,13 +1315,13 @@ static struct opt_table opt_config_table[] =
     "Allow log work diff"),
     OPT_WITH_ARG("--logfile",
     set_logfile_path, NULL, opt_hidden,
-    "Set log file, default: cgminer.log"),
+    "Set log file, default: bmminer.log"),
     OPT_WITH_ARG("--api-allow",
     opt_set_charp, NULL, &opt_api_allow,
     "Allow API access only to the given list of [G:]IP[/Prefix] addresses[/subnets]"),
     OPT_WITH_ARG("--api-description",
     opt_set_charp, NULL, &opt_api_description,
-    "Description placed in the API status header, default: cgminer version"),
+    "Description placed in the API status header, default: bmminer version"),
     OPT_WITH_ARG("--api-groups",
     opt_set_charp, NULL, &opt_api_groups,
     "API one letter groups G:cmd:cmd[,P:cmd:*...] defining the cmds a groups can use"),
@@ -1442,13 +1442,13 @@ static struct opt_table opt_config_table[] =
     "Change multipool strategy from failover to even share balance"),
     OPT_WITH_ARG("--benchfile",
     opt_set_charp, NULL, &opt_benchfile,
-    "Run cgminer in benchmark mode using a work file - produces no shares"),
+    "Run bmminer in benchmark mode using a work file - produces no shares"),
     OPT_WITHOUT_ARG("--benchfile-display",
     opt_set_bool, &opt_benchfile_display,
     "Display each benchfile nonce found"),
     OPT_WITHOUT_ARG("--benchmark",
     opt_set_bool, &opt_benchmark,
-    "Run cgminer in benchmark mode - produces no shares"),
+    "Run bmminer in benchmark mode - produces no shares"),
 #if defined(USE_BITFORCE)
     OPT_WITHOUT_ARG("--bfl-range",
     opt_set_bool, &opt_bfl_noncerange,
@@ -6178,7 +6178,7 @@ void default_save_file(char *filename)
     }
     else
         strcpy(filename, "");
-    strcat(filename, ".cgminer/");
+    strcat(filename, ".bmminer/");
     mkdir(filename, 0777);
 #else
     strcpy(filename, "");
@@ -6342,7 +6342,7 @@ retry:
     wlogprint("[U]nplug to allow hotplug restart\n");
     wlogprint("[R]eset device USB\n");
     wlogprint("[L]ist all known devices\n");
-    wlogprint("[B]lacklist current device from current instance of cgminer\n");
+    wlogprint("[B]lacklist current device from current instance of bmminer\n");
     wlogprint("[W]hitelist previously blacklisted device\n");
     wlogprint("[H]otplug interval (0 to disable)\n");
     wlogprint("Select an option or any other key to return\n");
@@ -6733,7 +6733,7 @@ static void hashmeter(int thr_id, uint64_t hashes_done)
 
     if(total_secs - last_total_secs > 86400)
     {
-        applog(LOG_ERR, "cgminer time error total_secs = %d last_total_secs = %d", total_secs, last_total_secs);
+        applog(LOG_ERR, "bmminer time error total_secs = %d last_total_secs = %d", total_secs, last_total_secs);
         mutex_unlock(&hash_lock);
         zero_stats();
         mutex_lock(&hash_lock);
@@ -7816,7 +7816,7 @@ bool submit_nonce2_nonce(struct thr_info *thr, struct pool *pool, struct pool *r
 
 #if defined USE_BITMAIN_C5
 void get_work_by_nonce2(struct thr_info *thr, struct work **work,struct pool *pool, struct pool *real_pool,
-                        uint32_t nonce2, uint32_t ntime, uint32_t version)
+                        uint64_t nonce2, uint32_t ntime, uint32_t version)
 {
     *work = make_work();
     const int thr_id = thr->id;
@@ -7830,7 +7830,7 @@ void get_work_by_nonce2(struct thr_info *thr, struct work **work,struct pool *po
     cg_wunlock(&pool->data_lock);
 
     gen_stratum_work(pool, *work);
-
+	
     (*work)->pool = real_pool;
 
     (*work)->thr_id = thr_id;
@@ -10549,7 +10549,7 @@ int main(int argc, char *argv[])
     char *s;
 
     g_logfile_enable = false;
-    strcpy(g_logfile_path, "cgminer.log");
+    strcpy(g_logfile_path, "bmminer.log");
     strcpy(g_logfile_openflag, "a+");
     /* This dangerous functions tramples random dynamically allocated
      * variables so do it before anything at all */
@@ -10809,7 +10809,7 @@ int main(int argc, char *argv[])
             case -1:
                 applog(LOG_WARNING, "Error in configuration file, partially loaded.");
                 if (use_curses)
-                    applog(LOG_WARNING, "Start cgminer with -T to see what failed to load.");
+                    applog(LOG_WARNING, "Start bmminer with -T to see what failed to load.");
                 break;
             default:
                 break;
@@ -11020,7 +11020,7 @@ int main(int argc, char *argv[])
             }
             pool_msg = true;
             if (use_curses)
-                applog(LOG_ERR, "Press any key to exit, or cgminer will wait indefinitely for an alive pool.");
+                applog(LOG_ERR, "Press any key to exit, or bmminer will wait indefinitely for an alive pool.");
         }
         if (!use_curses)
             early_quit(0, "No servers could be used! Exiting.");

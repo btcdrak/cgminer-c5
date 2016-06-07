@@ -100,7 +100,7 @@ typedef struct {
 	uint16_t capabilities;
 } Identity;
 
-/* Capabilities flags known to cgminer */
+/* Capabilities flags known to bmminer */
 #define CAP_TEMP (1<<0)
 #define CAP_EXT_CLOCK (1<<1)
 #define CAP_IS_AVALON (1<<2)

@@ -344,7 +344,7 @@ static void _transfer(struct cgpu_info *bmsc, uint8_t request_type, uint8_t bReq
 
 	err = usb_transfer_data(bmsc, request_type, bRequest, wValue, wIndex, data, siz, cmd);
 
-	applog(LOG_DEBUG, "%s: cgid %d %s got err %d",
+	applog(LOG_DEBUG, "%s: bmgid %d %s got err %d",
 			bmsc->drv->name, bmsc->cgminer_id,
 			usb_cmdname(cmd), err);
 }

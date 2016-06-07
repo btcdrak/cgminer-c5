@@ -3254,6 +3254,7 @@ void get_nonce_and_register(void)
     unsigned int work_id=0, *data_addr=NULL;
     unsigned int i=0, j=0, m=0, nonce_number = 0, read_loop=0;
     unsigned int buf[2] = {0,0};
+	uint64_t n2h = 0, n2l = 0;
     char ret = 0;
     unsigned int nonce_p_wr=0, nonce_p_rd=0, nonce_nonce_num=0, nonce_loop_back=0;
     unsigned int reg_p_wr=0, reg_p_rd=0, reg_reg_value_num=0, reg_loop_back=0;
@@ -3290,7 +3291,9 @@ void get_nonce_and_register(void)
                             nonce_read_out.nonce_buffer[nonce_read_out.p_wr].chain_num        = buf[0] & 0x0000000f;
                             nonce_read_out.nonce_buffer[nonce_read_out.p_wr].job_id           = *(data_addr + JOB_ID_OFFSET);
                             nonce_read_out.nonce_buffer[nonce_read_out.p_wr].header_version   = *(data_addr + HEADER_VERSION_OFFSET);
-                            nonce_read_out.nonce_buffer[nonce_read_out.p_wr].nonce2           = (*(data_addr + NONCE2_H_OFFSET) << 32) | (*(data_addr + NONCE2_L_OFFSET));
+							n2h = *(data_addr + NONCE2_H_OFFSET);
+							n2l = *(data_addr + NONCE2_L_OFFSET);
+                            nonce_read_out.nonce_buffer[nonce_read_out.p_wr].nonce2           = (n2h << 32) | (n2l);
 
                             for(m=0; m<MIDSTATE_LEN; m++)
                             {
@@ -3374,7 +3377,7 @@ void get_nonce_and_register(void)
 }
 
 
-//interface between cgminer and axi driver
+//interface between bmminer and axi driver
 int bitmain_c5_init(struct init_config config)
 {
     char ret=0,j;
@@ -3705,8 +3708,8 @@ int bitmain_c5_init(struct init_config config)
     }
 
     hardware_version = get_hardware_version();
-    fpga_version = (hardware_version >> 16) & 0x0000ffff;
-    pcb_version = hardware_version & 0x000000ff;
+    pcb_version = (hardware_version >> 16) & 0x0000ffff;
+    fpga_version = hardware_version & 0x000000ff;
     sprintf(g_miner_version, "%d.%d.%d.%d", fpga_version, pcb_version, C5_VERSION, 0);
 
     return 0;
@@ -3730,7 +3733,8 @@ int parse_job_to_c5(unsigned char **buf,struct pool *pool,uint32_t id)
     part_job.asic_diff_valid    = 1;
     part_job.asic_diff          = 15;
     part_job.job_id             = id;
-
+	part_job.nonce2_start_value = 0;
+	
     hex2bin(&part_job.bbversion, pool->bbversion, 4);
     hex2bin(part_job.prev_hash, pool->prev_hash, 32);
     hex2bin(&part_job.nbit, pool->nbit, 4);
@@ -3752,7 +3756,7 @@ int parse_job_to_c5(unsigned char **buf,struct pool *pool,uint32_t id)
     memset(tmp_buf,0,buf_len);
     memcpy(tmp_buf,&part_job,sizeof(struct part_of_job));
     memcpy(tmp_buf + sizeof(struct part_of_job), pool->coinbase, pool->coinbase_len);
-
+	
     for (i = 0; i < pool->merkles; i++)
     {
         memcpy(tmp_buf + sizeof(struct part_of_job) + pool->coinbase_len + i * 32, pool->swork.merkle_bin[i], 32);
@@ -4230,7 +4234,7 @@ static bool bitmain_c5_prepare(struct thr_info *thr)
 static void bitmain_c5_reinit_device(struct cgpu_info *bitmain)
 {
     if(!status_error)
-        system("/etc/init.d/cgminer.sh restart > /dev/null 2>&1 &");
+        system("/etc/init.d/bmminer.sh restart > /dev/null 2>&1 &");
 }
 
 
@@ -4400,7 +4404,7 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
     {
         uint32_t nonce3 = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].nonce3;
         uint32_t job_id = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].job_id;
-        uint32_t nonce2 = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].nonce2 & 0xffffffff;
+        uint64_t nonce2 = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].nonce2;
         uint32_t chain_id = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].chain_num;
         uint32_t work_id = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].work_id;
         uint32_t version = Swap32(nonce_read_out.nonce_buffer[nonce_read_out.p_rd].header_version);
@@ -4408,10 +4412,10 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
         int i = 0;
         for(i=0; i<32; i++)
         {
-            midstate[i] = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].midstate[i];
+        	
+            midstate[(7-(i/4))*4 + (i%4)] = nonce_read_out.nonce_buffer[nonce_read_out.p_rd].midstate[i];
         }
-
-        applog(LOG_DEBUG,"%s: job_id:0x%x   work_id:0x%x   nonce2:0x%x   nonce3:0x%x   version:0x%x\n", __FUNCTION__,job_id, work_id,nonce2, nonce3,version);
+        applog(LOG_DEBUG,"%s: job_id:0x%x   work_id:0x%x   nonce2:0x%llx   nonce3:0x%x   version:0x%x\n", __FUNCTION__,job_id, work_id,nonce2, nonce3,version);
         struct work * work;
 
         struct pool *pool, *c_pool;
@@ -4771,7 +4775,7 @@ struct device_drv bitmain_c5_drv =
     .thread_prepare = bitmain_c5_prepare,
     .hash_work = hash_driver_work,
     .scanwork = bitmain_c5_scanhash,
-    //.flush_work = bitmain_c5_update,
+    .flush_work = bitmain_c5_update,
     .update_work = bitmain_c5_update,
     .get_api_stats = bitmain_api_stats,
     .reinit_device = bitmain_c5_reinit_device,
