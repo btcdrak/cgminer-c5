@@ -1050,7 +1050,7 @@ void set_dhash_acc_control(unsigned int value)
     applog(LOG_DEBUG,"%s: set DHASH_ACC_CONTROL is 0x%x\n", __FUNCTION__, value);
     while (a>0)
     {
-        if (value == get_dhash_acc_control())
+        if ((value | NEW_BLOCK) == (get_dhash_acc_control() |NEW_BLOCK))
             break;
         *((unsigned int *)(axi_fpga_addr + DHASH_ACC_CONTROL)) = value;
         a--;
@@ -2711,7 +2711,10 @@ void check_system_work()
                         }
                         else
                         {
-                            dev->chain_asic_status_string[i][j+offset] = 'x';
+                        	if(!status_error)
+                            	dev->chain_asic_status_string[i][j+offset] = 'o';
+							else
+								dev->chain_asic_status_string[i][j+offset] = 'x';
                             error_asic++;
                         }
                         dev->chain_asic_nonce[i][j] = 0;
@@ -4057,9 +4060,15 @@ int send_job(unsigned char *buf)
     if(part_job->new_block)
     {
         if(!opt_multi_version)
-            set_dhash_acc_control((unsigned int)get_dhash_acc_control() | NEW_BLOCK | RUN_BIT | OPERATION_MODE);
+        {
+        	set_dhash_acc_control((unsigned int)get_dhash_acc_control() | NEW_BLOCK );
+            set_dhash_acc_control((unsigned int)get_dhash_acc_control() | RUN_BIT | OPERATION_MODE);
+        }
         else
-            set_dhash_acc_control((unsigned int)get_dhash_acc_control() | NEW_BLOCK | RUN_BIT | OPERATION_MODE |VIL_MODE);
+        {
+        	set_dhash_acc_control((unsigned int)get_dhash_acc_control() | NEW_BLOCK );
+            set_dhash_acc_control((unsigned int)get_dhash_acc_control() | RUN_BIT | OPERATION_MODE |VIL_MODE);
+        }
     }
     else
     {
@@ -4271,7 +4280,6 @@ static __inline void flip_swab(void *dest_p, const void *src_p, unsigned int len
 }
 static uint64_t hashtest_submit(struct thr_info *thr, struct work *work, uint32_t nonce, uint8_t *midstate,struct pool *pool,uint64_t nonce2,uint32_t chain_id )
 {
-
     unsigned char hash1[32];
     unsigned char hash2[32];
     unsigned char i,j;
@@ -4635,7 +4643,7 @@ static void bitmain_c5_update(struct cgpu_info *bitmain_c5)
     /* Step 2: MM protocol check */
     pool = current_pool();
     if (!pool->has_stratum)
-        quit(1, "Bitmain C5 has to use stratum pools");
+        quit(1, "Bitmain S9 has to use stratum pools");
 
     /* Step 3: MM parse job to c5 formart */
     cg_wlock(&info->update_lock);
@@ -4672,7 +4680,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
     int i = 0;
     uint64_t hash_rate_all = 0;
     char displayed_rate_all[16];
-    bool copy_data = true;
+    bool copy_data = false;
 
     root = api_add_uint8(root, "miner_count", &(dev->chain_num), copy_data);
     root = api_add_string(root, "frequency", dev->frequency_t, copy_data);
@@ -4680,7 +4688,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
 
     for(i = 0; i < BITMAIN_MAX_FAN_NUM; i++)
     {
-        char fan_name[10];
+        char fan_name[12];
         sprintf(fan_name,"fan%d",i+1);
         root = api_add_uint(root, fan_name, &(dev->fan_speed_value[i]), copy_data);
     }
@@ -4688,7 +4696,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
     root = api_add_uint8(root, "temp_num", &(dev->chain_num), copy_data);
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
-        char temp_name[10];
+        char temp_name[12];
         sprintf(temp_name,"temp%d",i+1);
         root = api_add_int16(root, temp_name, &(dev->chain_asic_temp[i][2][0]), copy_data);
     }
@@ -4696,7 +4704,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
 
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
-        char temp2_name[10];
+        char temp2_name[12];
         sprintf(temp2_name,"temp2_%d",i+1);
         root = api_add_int16(root, temp2_name, &(dev->chain_asic_temp[i][2][1]), copy_data);
     }
@@ -4713,6 +4721,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
         char chain_name[12];
         sprintf(chain_name,"chain_acn%d",i+1);
         root = api_add_uint8(root, chain_name, &(dev->chain_asic_num[i]), copy_data);
+
     }
 
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
@@ -4724,14 +4733,14 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
 
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
-        char chain_hw[12];
+        char chain_hw[16];
         sprintf(chain_hw,"chain_hw%d",i+1);
-        root = api_add_uint64(root, chain_hw, &(dev->chain_hw[i]), copy_data);
+        root = api_add_uint32(root, chain_hw, &(dev->chain_hw[i]), copy_data);
     }
 
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
-        char chain_rate[15];
+        char chain_rate[16];
         sprintf(chain_rate,"chain_rate%d",i+1);
         root = api_add_string(root, chain_rate, displayed_rate[i], copy_data);
     }

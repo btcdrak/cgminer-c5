@@ -350,18 +350,18 @@ struct all_parameters {
 	unsigned int	nonce_error;
 	unsigned int	chain_asic_exist[BITMAIN_MAX_CHAIN_NUM][8];
 	unsigned int	chain_asic_status[BITMAIN_MAX_CHAIN_NUM][8];
-	int16_t			chain_asic_temp[BITMAIN_MAX_CHAIN_NUM][8][3];
+	int16_t			chain_asic_temp[BITMAIN_MAX_CHAIN_NUM][8][4];
 	int8_t			chain_asic_iic[CHAIN_ASIC_NUM];
-	uint64_t		chain_hw[BITMAIN_MAX_CHAIN_NUM];
+	uint32_t		chain_hw[BITMAIN_MAX_CHAIN_NUM];
 	uint64_t		chain_asic_nonce[BITMAIN_MAX_CHAIN_NUM][BITMAIN_DEFAULT_ASIC_NUM];
-	char			chain_asic_status_string[BITMAIN_MAX_CHAIN_NUM][BITMAIN_DEFAULT_ASIC_NUM+10];
+	char			chain_asic_status_string[BITMAIN_MAX_CHAIN_NUM][BITMAIN_DEFAULT_ASIC_NUM+8];
 	
 	unsigned long long int total_nonce_num;
 
 	unsigned char	fan_exist[BITMAIN_MAX_FAN_NUM];
 	unsigned int	fan_speed_value[BITMAIN_MAX_FAN_NUM];
 	int				temp[BITMAIN_MAX_CHAIN_NUM];
-	unsigned char	chain_asic_num[BITMAIN_MAX_CHAIN_NUM];
+	uint8_t			chain_asic_num[BITMAIN_MAX_CHAIN_NUM];
 	unsigned char	check_bit;
 	unsigned char	pwm_percent;
 	unsigned char	chain_num;
