@@ -2088,8 +2088,55 @@ unsigned int check_reg_temp(unsigned char device,unsigned reg,unsigned char data
 }
 
 
+static int8_t bottom_Offset[BITMAIN_MAX_CHAIN_NUM] = {0x0};
+static int8_t middle_Offset[BITMAIN_MAX_CHAIN_NUM] = {0x0};
+typedef enum {
+  TEMP_BOTTOM = 0,
+  TEMP_MIDDLE
+} Temp_Type_E;
+#define MAX_ERROR_LIMIT_ABS ( 2 )
+#define MAX_RETRY_COUNT ( 5 + 1 )
+int8_t do_calibration_sensor_offset(unsigned char device,unsigned char chip_addr,int chain,unsigned chip_num) {
+
+  // ret = check_reg_temp(device, 0x11, 0xba, 1, chip_addr, chain); Set Pre-Set offset
+  // ret = check_reg_temp(device, 0x0, 0x0, 0, chip_addr, chain); Read Local Temp
+  // ret = check_reg_temp(device, 0x1, 0x0, 0, chip_addr, chain); Read Remote Temp
+  // ret = check_reg_temp(device, 0x11, offset, 1, chip_addr, chain); Set Real offset
+
+  int8_t offset = 0xba;
+  int8_t middle,local = 0;
+  unsigned int ret = 0;
+  int8_t error_Limit = 0;
+  int8_t retry_Time_Count = 0;
+
+  ret = check_reg_temp(device, 0x0, 0x0, 0, chip_addr, chain); // Read Local Temp, Without Any Exception?
+  local = ret & 0xff;
+
+  do {
+    if ( retry_Time_Count++ > MAX_RETRY_COUNT ) {
+
+      // TODO: What To Do?
+
+    }
+
+    ret = check_reg_temp(device, 0x11, offset, 1, chip_addr, chain); // Set offset
+    ret = check_reg_temp(device, 0x1, 0x0, 0, chip_addr, chain); // Read Remote Temp
+    middle = ret & 0xff;
+    error_Limit = middle - local;
+    offset = offset + (local - middle);
+
+  } while ( abs(error_Limit) > MAX_ERROR_LIMIT_ABS );
+
+  return ( offset - (local - middle) );
+
+}
+
+void open_core();
+
 int8_t calibration_sensor_offset(unsigned char device,unsigned char chip_addr,int chain,unsigned chip_num)
 {
+
+#if 0
     int8_t offset,middle,local;
     unsigned int ret = 0;
     ret = check_reg_temp(device, 0x11, 0xba, 1, chip_addr, chain);
@@ -2099,6 +2146,21 @@ int8_t calibration_sensor_offset(unsigned char device,unsigned char chip_addr,in
     middle = ret & 0xff;
     offset = -70 + (local - middle);
     ret = check_reg_temp(device, 0x11, offset, 1, chip_addr, chain);
+#else
+
+    // Set Each Temp Offset
+    Temp_Type_E temp_Type = TEMP_MIDDLE;
+    // 0. Switch To Middle
+    set_baud_with_addr(dev->baud, 0, HAVE_TEMP, chain, 1, open_core, (int) temp_Type);
+    // 1. Calibration
+    middle_Offset[chain] = do_calibration_sensor_offset(device, chip_addr,chain,chip_num);
+    // 2. Switch To Bottom
+    temp_Type = TEMP_BOTTOM;
+    set_baud_with_addr(dev->baud, 0, HAVE_TEMP, chain, 1, open_core, (int) temp_Type);
+    //    Record Bottom Offset
+    bottom_Offset[chain] = do_calibration_sensor_offset(device, chip_addr, chain, chip_num);
+
+#endif
 }
 void read_temp_func()
 {
@@ -2108,11 +2170,13 @@ void read_temp_func()
 
     while(1)
     {
+
         temp_top = 0;
         for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
         {
             if(dev->chain_exist[i] == 1)
             {
+#if 0
                 pthread_mutex_lock(&reg_read_mutex);
                 ret = check_reg_temp(0x98, 0x00, 0x0, 0x0, HAVE_TEMP, i);
                 if (ret != 0)
@@ -2129,9 +2193,51 @@ void read_temp_func()
                 {
                     dev->chain_asic_temp[i][2][1] = (ret & 0xff);
                 }
+#else
+                // TODO: Looping To Get Temp From Chip
+                pthread_mutex_lock(&reg_read_mutex);
+                // Read And Storage Local Temp
+                ret = check_reg_temp(0x98, 0x00, 0x0, 0x0, HAVE_TEMP, i);
+                if ( ret ) {
+                    dev->chain_asic_temp[i][2][0] = (ret & 0xff);
+                    if (dev->chain_asic_temp[i][2][0] > temp_top)
+                    {
+                        temp_top = dev->chain_asic_temp[i][2][0];
+                    }
+                }
+
+                // 0. Switch Chip To Middle
+                Temp_Type_E temp_Type = TEMP_MIDDLE;
+                set_baud_with_addr(dev->baud, 0, HAVE_TEMP, i, 1, open_core, (int) temp_Type);
+                // 1. Set Temp Offset
+                //    Read And Storage Temp
+                ret = check_reg_temp(0x98, 0x11, middle_Offset[i], 1, HAVE_TEMP, i); // Set offset
+                ret = check_reg_temp(0x98, 0x1, 0x0, 0, HAVE_TEMP, i); // Read Remote Temp
+                if ( ret ) {
+                  dev->chain_asic_temp[i][2][1] = (ret & 0xff);
+                } else {
+                  // TODO: Exceptions?
+                  // pthread_mutex_unlock(&reg_read_mutex);
+                }
+                // 2. Switch Chip To Bottom
+                temp_Type = TEMP_BOTTOM;
+                set_baud_with_addr(dev->baud, 0, HAVE_TEMP, i, 1, open_core, (int) temp_Type);
+                // 3. Set Temp Offset
+                //    Read And Storage Temp
+                ret = check_reg_temp(0x98, 0x11, bottom_Offset[i], 1, HAVE_TEMP, i); // Set offset
+                ret = check_reg_temp(0x98, 0x1, 0x0, 0, HAVE_TEMP, i); // Read Remote Temp
+                if ( ret ) {
+                  dev->chain_asic_temp[i][2][2] = (ret & 0xff);
+                } else {
+                  // TODO: Exceptions?
+                  // pthread_mutex_unlock(&reg_read_mutex);
+                }
+                pthread_mutex_unlock(&reg_read_mutex);
+#endif
             }
         }
         dev->temp_top1 = temp_top;
+
         sleep(1);
     }
 }
@@ -3476,7 +3582,7 @@ int bitmain_c5_init(struct init_config config)
         if(dev->chain_exist[i] == 1)
         {
             pthread_mutex_lock(&iic_mutex);
-			get_hash_board_id_number(i,hash_board_id[i]); 
+			get_hash_board_id_number(i,hash_board_id[i]);
 			buf_hex = bin2hex(hash_board_id[i],12);
 			sprintf(hash_board_id_string + (board_num*id_string_len),"{\"ID\":\"%s\"},",buf_hex);
 			board_num++;
@@ -3486,7 +3592,7 @@ int bitmain_c5_init(struct init_config config)
         }
     }
 	hash_board_id_string[board_num*id_string_len - 1] = '\0';
-	
+
     for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
         if(dev->chain_exist[i] == 1)
@@ -3639,6 +3745,10 @@ int bitmain_c5_init(struct init_config config)
     if(access("/config/temp_sensor", 0) == -1)
     {
         system("touch /config/temp_sensor");
+#if 0
+// 根据新的需求 需要多次对温控位置进行切换 故此处不在需要 将设置逻辑全部转移至 calibration_sensor_offset 中
+// 同时对calibration_sensor_offset函数进行了调整
+//
         for(i=0; i<BITMAIN_MAX_CHAIN_NUM; i++)
         {
             if(dev->chain_exist[i] == 1)
@@ -3648,7 +3758,7 @@ int bitmain_c5_init(struct init_config config)
         }
 
         cgsleep_ms(5);
-
+#endif
         for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
         {
             if(dev->chain_exist[i] == 1 && dev->chain_asic_num[i] == CHAIN_ASIC_NUM)
@@ -4450,7 +4560,7 @@ static uint64_t hashtest_submit(struct thr_info *thr, struct work *work, uint32_
         while(tmp_net_diff > 0)
         {
             tmp_net_diff = tmp_net_diff >> 1;
-            net_diff_bit++;   
+            net_diff_bit++;
         }
         net_diff_bit--;
         applog(LOG_DEBUG,"%s:net_diff:%d current_diff:%d net_diff_bit %d ...\n", __FUNCTION__,net_diff,current_diff,net_diff_bit);
