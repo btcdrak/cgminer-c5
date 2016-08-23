@@ -1478,7 +1478,7 @@ void set_frequency(unsigned short int frequency)
 
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
 
                 cgsleep_us(3000);
@@ -1495,7 +1495,7 @@ void set_frequency(unsigned short int frequency)
 
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
 
                 dev->freq[i] = frequency;
@@ -1522,7 +1522,7 @@ void set_frequency(unsigned short int frequency)
 
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
 
                 dev->freq[i] = frequency;
@@ -1563,7 +1563,7 @@ void set_frequency_with_addr(unsigned short int frequency,unsigned char mode,uns
 
         set_BC_command_buffer(cmd_buf);
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
 
         cgsleep_us(3000);
@@ -1580,7 +1580,7 @@ void set_frequency_with_addr(unsigned short int frequency,unsigned char mode,uns
 
         set_BC_command_buffer(cmd_buf);
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
 
         dev->freq[i] = frequency;
@@ -1610,7 +1610,7 @@ void set_frequency_with_addr(unsigned short int frequency,unsigned char mode,uns
 
         set_BC_command_buffer(cmd_buf);
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
 
         dev->freq[i] = frequency;
@@ -1664,7 +1664,7 @@ void read_asic_register(unsigned char chain, unsigned char mode, unsigned char c
         set_BC_command_buffer(cmd_buf);
 
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
     else    // vil mode
@@ -1690,7 +1690,7 @@ void read_asic_register(unsigned char chain, unsigned char mode, unsigned char c
         set_BC_command_buffer(cmd_buf);
 
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
 }
@@ -1727,7 +1727,7 @@ void read_temp(unsigned char device,unsigned reg,unsigned char data,unsigned cha
             cgsleep_ms(1);
         }
         set_BC_command_buffer(cmd_buf);
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
 
@@ -2173,7 +2173,7 @@ void chain_inactive(unsigned char chain)
         set_BC_command_buffer(cmd_buf);
 
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
     else    // vil mode
@@ -2195,7 +2195,7 @@ void chain_inactive(unsigned char chain)
             cgsleep_ms(1);
         }
         set_BC_command_buffer(cmd_buf);
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
 }
@@ -2220,7 +2220,7 @@ void set_address(unsigned char chain, unsigned char mode, unsigned char address)
         set_BC_command_buffer(cmd_buf);
 
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
     else    // vil mode
@@ -2242,7 +2242,7 @@ void set_address(unsigned char chain, unsigned char mode, unsigned char address)
             cgsleep_ms(1);
         }
         set_BC_command_buffer(cmd_buf);
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (chain << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
 }
@@ -2408,7 +2408,7 @@ void set_asic_ticket_mask(unsigned int ticket_mask)
                 set_BC_command_buffer(cmd_buf);
 
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
             }
             else    // vil mode
@@ -2429,7 +2429,7 @@ void set_asic_ticket_mask(unsigned int ticket_mask)
 
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
             }
         }
@@ -2470,7 +2470,7 @@ void set_baud(unsigned char bauddiv,int no_use)
                 set_BC_command_buffer(cmd_buf);
 
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
             }
             else    // vil mode
@@ -2492,7 +2492,7 @@ void set_baud(unsigned char bauddiv,int no_use)
 
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
             }
         }
@@ -2528,7 +2528,7 @@ void set_baud_with_addr(unsigned char bauddiv,unsigned int mode,unsigned int chi
         set_BC_command_buffer(cmd_buf);
 
         ret = get_BC_write_command();
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
     else    // vil mode
@@ -2571,7 +2571,7 @@ void set_baud_with_addr(unsigned char bauddiv,unsigned int mode,unsigned int chi
             cgsleep_ms(1);
         }
         set_BC_command_buffer(cmd_buf);
-        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0x1f);
+        value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID| (i << 16) | (ret & 0xfff0ffff);
         set_BC_write_command(value);
     }
 }
@@ -2776,11 +2776,12 @@ void check_system_work()
         }
 		if(stop_mining)
 			status_error = true;
+		/*
         if(error_asic > asic_num/5 || asic_num == 0)
         {
             stop = true;
         }
-
+		*/
         set_led(stop);
 
         cgsleep_ms(1000);
@@ -2826,7 +2827,7 @@ void open_core()
             {
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
                 cgsleep_us(10000);
 
@@ -2927,7 +2928,7 @@ void open_core()
                 work_vil_1387.data[11] = 0xff;
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
                 cgsleep_us(10000);
 
@@ -3002,7 +3003,6 @@ void open_core()
         }
         set_dhash_acc_control(get_dhash_acc_control()| VIL_MODE | VIL_MIDSTATE_NUMBER(opt_multi_version));
     }
-
 }
 
 #if 0
@@ -3038,7 +3038,7 @@ void open_core()
             {
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
                 cgsleep_ms(10);
 
@@ -3148,7 +3148,7 @@ void open_core()
             {
                 set_BC_command_buffer(cmd_buf);
                 ret = get_BC_write_command();
-                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0x1f);
+                value = BC_COMMAND_BUFFER_READY | BC_COMMAND_EN_CHAIN_ID | (i << 16) | (ret & 0xfff0ffff);
                 set_BC_write_command(value);
                 cgsleep_ms(10);
 
@@ -3518,7 +3518,7 @@ int bitmain_c5_init(struct init_config config)
     }
 
 #if 0
-    de_voltage = 125;// opt_bitmain_c5_voltage;
+    de_voltage = opt_bitmain_c5_voltage;
     cgsleep_ms(100);
     for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
@@ -3940,7 +3940,6 @@ int send_job(unsigned char *buf)
     }
 
 
-
     if((part_job->coinbase_len % 64) > 55)
     {
         coinbase_padding_len = (part_job->coinbase_len/64 + 2) * 64;
@@ -4124,52 +4123,6 @@ int send_job(unsigned char *buf)
     cgtime(&tv_send_job);
     return 0;
 }
-
-#if 1
-char get_status(struct bitmain_c5_info *c5_info)
-{
-    char ret=0;
-    uint16_t crc = 0;
-    unsigned int i,j;
-
-    c5_info->data_type          = STATUS_DATA_TYPE;
-    c5_info->version            = 0;
-    c5_info->length             = sizeof(struct bitmain_c5_info) - sizeof(c5_info->data_type) - sizeof(c5_info->version) - sizeof(c5_info->length);
-    c5_info->chip_value_eft     = 0;
-    c5_info->chain_num          = dev->chain_num;
-    c5_info->fan_num            = dev->fan_num;
-    c5_info->temp_num           = dev->temp_num;
-    c5_info->fan_exist          = dev->fan_exist_map;
-    c5_info->temp_exist         = dev->temp_sensor_map;
-    c5_info->diff               = dev->diff;
-
-
-    for(i=0; i<BITMAIN_MAX_CHAIN_NUM; i++)
-    {
-        c5_info->chain_asic_num[i] = dev->chain_asic_num[i];
-    }
-
-    for(i=0; i<BITMAIN_MAX_CHAIN_NUM; i++)
-    {
-        c5_info->temp[i] = dev->temp[i];
-    }
-
-    for(i=0; i<BITMAIN_MAX_FAN_NUM; i++)
-    {
-        c5_info->fan_speed_value[i] = dev->fan_speed_value[i];
-    }
-
-    for(i=0; i<BITMAIN_MAX_CHAIN_NUM; i++)
-    {
-        c5_info->freq[i] = dev->freq[i];
-    }
-
-    c5_info->crc = CRC16(c5_info, sizeof(struct bitmain_c5_info) - sizeof(c5_info->crc));
-
-    return ret;
-}
-#endif
-
 
 static void copy_pool_stratum(struct pool *pool_stratum, struct pool *pool)
 {
@@ -4515,7 +4468,7 @@ static uint64_t hashtest_submit(struct thr_info *thr, struct work *work, uint32_
         while(tmp_net_diff > 0)
         {
             tmp_net_diff = tmp_net_diff >> 1;
-            net_diff_bit++;
+            net_diff_bit++;   
         }
         net_diff_bit--;
         applog(LOG_DEBUG,"%s:net_diff:%d current_diff:%d net_diff_bit %d ...\n", __FUNCTION__,net_diff,current_diff,net_diff_bit);
@@ -4597,7 +4550,6 @@ static uint64_t hashtest_submit(struct thr_info *thr, struct work *work, uint32_
     return hashes;
 }
 
-#if 1
 static int64_t bitmain_scanhash(struct thr_info *thr)
 {
     struct cgpu_info *bitmain_c5 = thr->cgpu;
@@ -4720,101 +4672,6 @@ static int64_t bitmain_c5_scanhash(struct thr_info *thr)
     return h;
 }
 
-#endif
-#if 0
-static int64_t bitmain_c5_scanhash(struct thr_info *thr)
-{
-    struct cgpu_info *bitmain_c5 = thr->cgpu;
-    struct bitmain_c5_info *info = bitmain_c5->device_data;
-    struct timeval current;
-    double device_tdiff, hwp;
-    uint32_t a = 0, b = 0;
-    uint64_t h = 0;
-    int i, j,temp_nonce_num = 0;
-    static int times = 0;
-    /* Stop polling the device if there is no stratum in 3 minutes, network is down */
-    cgtime(&current);
-    pthread_mutex_lock(&nonce_mutex);
-
-    while(nonce_read_out.nonce_num)
-    {
-        applog(LOG_NOTICE,"%s: p_rd %d nonce_num %d temp_nonce_num %d...\n", __FUNCTION__, nonce_read_out.p_rd,nonce_read_out.nonce_num,temp_nonce_num);
-        memcpy(&temp_nonce_buf[temp_nonce_num], &(nonce_read_out.nonce_buffer[nonce_read_out.p_rd]),sizeof(struct nonce_content));
-        applog(LOG_DEBUG,"%s: _______________________________________ \n", __FUNCTION__);
-        temp_nonce_num++;
-
-        if(nonce_read_out.p_rd< MAX_NONCE_NUMBER_IN_FIFO)
-        {
-            nonce_read_out.p_rd++;
-        }
-        else
-        {
-            nonce_read_out.p_rd = 0;
-        }
-
-        nonce_read_out.nonce_num--;
-    }
-    pthread_mutex_unlock(&nonce_mutex);
-
-    cg_rlock(&info->update_lock);
-    for(i = 0; i<temp_nonce_num; i++)
-    {
-        struct work * work = NULL;
-
-        struct pool *pool = NULL, *c_pool = NULL;
-        struct pool *pool_stratum0 = &info->pool0;
-        struct pool *pool_stratum1 = &info->pool1;
-        struct pool *pool_stratum2 = &info->pool2;
-
-        applog(LOG_DEBUG,"%s: read nonce %d ...\n", __FUNCTION__, i);
-        if( (given_id -2)> temp_nonce_buf[i].job_id && given_id < temp_nonce_buf[i].job_id)
-        {
-            applog(LOG_DEBUG,"%s: job_id error ...\n", __FUNCTION__);
-            inc_hw_errors_with_diff(thr,(0x01UL << DEVICE_DIFF));
-            dev->chain_hw[temp_nonce_buf[i].chain_num]+=(0x01UL << DEVICE_DIFF);
-            continue;
-        }
-
-        applog(LOG_DEBUG,"%s: given_id:%d job_id:%d switch:%d  ...\n", __FUNCTION__,given_id,temp_nonce_buf[i].job_id,given_id - temp_nonce_buf[i].job_id);
-
-        switch (given_id - temp_nonce_buf[i].job_id)
-        {
-            case 0:
-                pool = pool_stratum0;
-                break;
-            case 1:
-                pool = pool_stratum1;
-                break;
-            case 2:
-                pool = pool_stratum2;
-                break;
-            default:
-                applog(LOG_DEBUG,"%s: job_id non't found ...\n", __FUNCTION__);
-                dev->chain_hw[temp_nonce_buf[i].chain_num]++;
-                inc_hw_errors(thr);
-                //inc_hw_errors_with_diff(thr,(0x01UL << DEVICE_DIFF));
-                //dev->chain_hw[chain_id]+=(0x01UL << DEVICE_DIFF);
-                continue;
-        }
-        c_pool = pools[pool->pool_no];
-        get_work_by_nonce2(thr,&work,pool,c_pool,temp_nonce_buf[i].nonce2,pool->ntime,temp_nonce_buf[i].header_version);
-        if(!work)
-        {
-            h += hashtest_submit(thr,work,temp_nonce_buf[i].nonce3,temp_nonce_buf[i].midstate,pool,temp_nonce_buf[i].nonce2,temp_nonce_buf[i].chain_num);
-            free_work(work);
-        }
-
-    }
-    cg_runlock(&info->update_lock);
-    cgsleep_ms(1);
-    if(h != 0)
-    {
-        applog(LOG_DEBUG,"%s: hashes %u ...\n", __FUNCTION__,h * 0xffffffffull);
-    }
-    return h * 0xffffffffull;
-}
-#endif
-
 static void bitmain_c5_update(struct cgpu_info *bitmain_c5)
 {
     struct bitmain_c5_info *info = bitmain_c5->device_data;
@@ -4831,12 +4688,12 @@ static void bitmain_c5_update(struct cgpu_info *bitmain_c5)
     /* Step 1: Make sure pool is ready */
     work = get_work(thr, thr->id);
     discard_work(work); /* Don't leak memory */
-    /* Step 2: MM protocol check */
+    /* Step 2: Protocol check */
     pool = current_pool();
     if (!pool->has_stratum)
         quit(1, "Bitmain S9 has to use stratum pools");
 
-    /* Step 3: MM parse job to c5 formart */
+    /* Step 3: Parse job to c5 formart */
     cg_wlock(&info->update_lock);
     cg_rlock(&pool->data_lock);
     info->pool_no = pool->pool_no;
@@ -4912,7 +4769,6 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
         char chain_name[12];
         sprintf(chain_name,"chain_acn%d",i+1);
         root = api_add_uint8(root, chain_name, &(dev->chain_asic_num[i]), copy_data);
-
     }
 
     for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
@@ -4936,7 +4792,7 @@ static struct api_data *bitmain_api_stats(struct cgpu_info *cgpu)
         root = api_add_string(root, chain_rate, displayed_rate[i], copy_data);
     }
 
-    for(i=0; i < BITMAIN_MAX_CHAIN_NUM; i++)
+    for(i = 0; i < BITMAIN_MAX_CHAIN_NUM; i++)
     {
         if(dev->chain_exist[i] == 1)
         {
